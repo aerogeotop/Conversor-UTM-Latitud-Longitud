@@ -1,11 +1,717 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Conversor UTM AeroGeoTop</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="GeoToolkits by AeroGeoTop — Conversor profesional UTM ↔ Latitud/Longitud. Herramienta de ingeniería geoespacial para Topografía, Geodesia y SIG." />
+  <meta name="author" content="AeroGeoTop" />
+  <meta name="theme-color" content="#0A0A0A" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="GeoToolkits · AeroGeoTop — Conversor UTM" />
+  <meta property="og:description" content="Conversor profesional UTM ↔ Latitud/Longitud para ingeniería geoespacial." />
+  <meta property="og:type" content="website" />
+
+  <title>GeoToolkits · AeroGeoTop | Conversor UTM ↔ Lat/Lon</title>
+
+  <!-- Fuentes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-    <h1>GeoToolkits AeroGeoTop</h1>
-    <p>Conversor UTM a Latitud y Longitud</p>
+
+  <!-- ╔══════════════════════════════════════════════╗
+       ║  AMBIENT BACKGROUND                          ║
+       ╚══════════════════════════════════════════════╝ -->
+  <div class="bg-canvas" aria-hidden="true">
+    <div class="bg-glow bg-glow-tl"></div>
+    <div class="bg-glow bg-glow-br"></div>
+    <div class="bg-grid"></div>
+  </div>
+
+  <!-- ╔══════════════════════════════════════════════╗
+       ║  HEADER                                      ║
+       ╚══════════════════════════════════════════════╝ -->
+  <header class="site-header" role="banner">
+    <div class="header-inner container">
+
+      <!-- Logotipo SVG personalizado -->
+      <a href="#" class="brand" aria-label="GeoToolkits by AeroGeoTop — inicio">
+        <div class="brand-logo" aria-hidden="true">
+          <!-- Logo GeoToolkits: representa un punto geodésico con meridianos y paralelos -->
+          <svg class="logo-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- Elipse exterior (horizonte) -->
+            <ellipse cx="22" cy="22" rx="19" ry="19" stroke="#38BDF8" stroke-width="1" opacity="0.35"/>
+            <!-- Meridiano vertical -->
+            <ellipse cx="22" cy="22" rx="7.5" ry="19" stroke="#38BDF8" stroke-width="0.8" opacity="0.45"/>
+            <!-- Paralelo horizontal central -->
+            <ellipse cx="22" cy="22" rx="19" ry="7.5" stroke="#38BDF8" stroke-width="0.8" opacity="0.45"/>
+            <!-- Paralelo superior -->
+            <ellipse cx="22" cy="14" rx="14" ry="3.5" stroke="#38BDF8" stroke-width="0.6" opacity="0.25"/>
+            <!-- Paralelo inferior -->
+            <ellipse cx="22" cy="30" rx="14" ry="3.5" stroke="#38BDF8" stroke-width="0.6" opacity="0.25"/>
+            <!-- Cruz de punto geodésico -->
+            <line x1="22" y1="3" x2="22" y2="41" stroke="#A3FF12" stroke-width="1.2" opacity="0.6"/>
+            <line x1="3" y1="22" x2="41" y2="22" stroke="#A3FF12" stroke-width="1.2" opacity="0.6"/>
+            <!-- Punto central (vértice geodésico) -->
+            <circle cx="22" cy="22" r="3.5" fill="#A3FF12"/>
+            <circle cx="22" cy="22" r="1.5" fill="#0A0A0A"/>
+            <!-- Marcadores cardinales -->
+            <rect x="20.5" y="1" width="3" height="4" rx="1" fill="#A3FF12" opacity="0.8"/>
+            <rect x="20.5" y="39" width="3" height="4" rx="1" fill="#A3FF12" opacity="0.8"/>
+            <rect x="1" y="20.5" width="4" height="3" rx="1" fill="#A3FF12" opacity="0.8"/>
+            <rect x="39" y="20.5" width="4" height="3" rx="1" fill="#A3FF12" opacity="0.8"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">GeoToolkits</span>
+          <span class="brand-by">by <strong>AeroGeoTop</strong></span>
+        </div>
+      </a>
+
+      <!-- Estado del sistema -->
+      <div class="header-center" aria-hidden="true">
+        <div class="system-status">
+          <span class="status-dot"></span>
+          <span class="status-text">WGS-84 · UTM</span>
+        </div>
+      </div>
+
+      <!-- Acciones de cabecera -->
+      <div class="header-actions">
+        <button class="btn-share-tool" id="btn-share-tool" aria-label="Compartir herramienta">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 5.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM4 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM10.5 4.5l-5 2M5.5 9l5 2.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          <span>Compartir</span>
+        </button>
+        <a href="https://aerogeotop.com" target="_blank" rel="noopener noreferrer" class="btn-site" aria-label="Visitar AeroGeoTop">
+          AeroGeoTop
+          <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M2.5 9.5L9.5 2.5M9.5 2.5H5M9.5 2.5V7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ╔══════════════════════════════════════════════╗
+       ║  MAIN                                        ║
+       ╚══════════════════════════════════════════════╝ -->
+  <main class="main" id="main">
+    <div class="container">
+
+      <!-- ── HERO ────────────────────────────────── -->
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-tag" aria-label="Tipo de herramienta">
+          <span class="hero-tag-dot" aria-hidden="true"></span>
+          Coordinate Converter · v1.0
+        </div>
+        <h1 class="hero-title" id="hero-title">
+          UTM <span class="arrow" aria-hidden="true">↔</span>
+          <span class="hero-accent">Lat / Lon</span>
+        </h1>
+        <p class="hero-subtitle">
+          Transformación geodésica de coordenadas planas proyectadas al sistema
+          geográfico global · Datum WGS-84 · Elipsoide GRS-80
+        </p>
+      </section>
+
+      <!-- ── SELECTOR DE DIRECCIÓN ───────────────── -->
+      <section class="mode-section" aria-label="Seleccionar dirección de conversión">
+        <div class="mode-selector" role="group" aria-label="Dirección de conversión">
+          <button
+            class="mode-btn mode-btn--active"
+            id="mode-utm"
+            data-mode="utm"
+            aria-pressed="true"
+            aria-label="Convertir UTM a Latitud y Longitud"
+          >
+            <span class="mode-icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.1"/>
+                <line x1="1.5" y1="8" x2="14.5" y2="8" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 1.5"/>
+                <line x1="8" y1="3.5" x2="8" y2="12.5" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 1.5"/>
+                <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+              </svg>
+            </span>
+            <span class="mode-label">UTM → Lat/Lon</span>
+          </button>
+
+          <div class="mode-divider" aria-hidden="true">
+            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 10h8M11 7l3 3-3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <button
+            class="mode-btn"
+            id="mode-latlon"
+            data-mode="latlon"
+            aria-pressed="false"
+            aria-label="Convertir Latitud y Longitud a UTM"
+          >
+            <span class="mode-icon" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.1"/>
+                <ellipse cx="8" cy="8" rx="2.5" ry="5.5" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 1.5"/>
+                <line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" stroke-width="0.8" stroke-dasharray="2 1.5"/>
+                <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+              </svg>
+            </span>
+            <span class="mode-label">Lat/Lon → UTM</span>
+          </button>
+        </div>
+
+        <div class="mode-tabs" role="tablist" aria-label="Tipo de conversión">
+          <button
+            class="tab-btn tab-btn--active"
+            id="tab-individual"
+            role="tab"
+            aria-selected="true"
+            aria-controls="panel-individual"
+            data-tab="individual"
+          >Individual</button>
+          <button
+            class="tab-btn"
+            id="tab-batch"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-batch"
+            data-tab="batch"
+          >Masivo</button>
+        </div>
+      </section>
+
+      <!-- ── PANEL INDIVIDUAL ────────────────────── -->
+      <section
+        id="panel-individual"
+        class="converter-panel"
+        role="tabpanel"
+        aria-labelledby="tab-individual"
+        aria-hidden="false"
+      >
+        <div class="converter-grid">
+
+          <!-- FORMULARIO DE ENTRADA -->
+          <div class="conv-card conv-card--input">
+            <div class="conv-card-header">
+              <div class="conv-card-title-row">
+                <span class="conv-card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 1.5v15M1.5 9h15" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    <circle cx="9" cy="9" r="3" stroke="currentColor" stroke-width="1.1"/>
+                  </svg>
+                </span>
+                <h2 class="conv-card-title" id="input-panel-title">Coordenadas UTM</h2>
+              </div>
+              <span class="conv-card-badge">ENTRADA</span>
+            </div>
+
+            <!-- Formulario UTM → LatLon -->
+            <form class="conv-form" id="form-utm" novalidate aria-labelledby="input-panel-title" data-form="utm">
+              <div class="form-row form-row--split">
+                <div class="form-field">
+                  <label class="field-label" for="utm-zone">Zona UTM</label>
+                  <div class="field-wrapper">
+                    <input
+                      type="number"
+                      id="utm-zone"
+                      name="zone"
+                      class="field-input"
+                      placeholder="19"
+                      min="1" max="60"
+                      inputmode="numeric"
+                      aria-describedby="utm-zone-desc"
+                      autocomplete="off"
+                    />
+                    <span class="field-unit" aria-hidden="true">1–60</span>
+                  </div>
+                  <span class="field-desc" id="utm-zone-desc">Número de zona (1 al 60)</span>
+                </div>
+                <div class="form-field">
+                  <label class="field-label" for="utm-hemisphere">Hemisferio</label>
+                  <div class="field-wrapper field-wrapper--select">
+                    <select id="utm-hemisphere" name="hemisphere" class="field-input field-select" aria-describedby="utm-hemi-desc">
+                      <option value="" disabled selected>Seleccionar</option>
+                      <option value="N">Norte (N)</option>
+                      <option value="S">Sur (S)</option>
+                    </select>
+                    <span class="select-chevron" aria-hidden="true">
+                      <svg viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 3.5l3 3 3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                  </div>
+                  <span class="field-desc" id="utm-hemi-desc">Norte o Sur del ecuador</span>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label" for="utm-easting">
+                  Coordenada Este
+                  <span class="field-label-axis" aria-label="eje X">(X)</span>
+                </label>
+                <div class="field-wrapper">
+                  <input
+                    type="number"
+                    id="utm-easting"
+                    name="easting"
+                    class="field-input field-input--mono"
+                    placeholder="800000.000"
+                    step="0.001"
+                    inputmode="decimal"
+                    aria-describedby="utm-easting-desc"
+                    autocomplete="off"
+                  />
+                  <span class="field-unit" aria-hidden="true">m</span>
+                </div>
+                <span class="field-desc" id="utm-easting-desc">Falso este: 100 000 – 900 000 m</span>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label" for="utm-northing">
+                  Coordenada Norte
+                  <span class="field-label-axis" aria-label="eje Y">(Y)</span>
+                </label>
+                <div class="field-wrapper">
+                  <input
+                    type="number"
+                    id="utm-northing"
+                    name="northing"
+                    class="field-input field-input--mono"
+                    placeholder="8000000.000"
+                    step="0.001"
+                    inputmode="decimal"
+                    aria-describedby="utm-northing-desc"
+                    autocomplete="off"
+                  />
+                  <span class="field-unit" aria-hidden="true">m</span>
+                </div>
+                <span class="field-desc" id="utm-northing-desc">Norte desde el ecuador (N) o 10 000 000 (S)</span>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn-convert" aria-label="Convertir coordenadas UTM a Latitud y Longitud">
+                  <span class="btn-convert-label">Convertir</span>
+                  <span class="btn-convert-icon" aria-hidden="true">→</span>
+                </button>
+                <button type="reset" class="btn-reset" aria-label="Limpiar formulario">
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M2.5 8A5.5 5.5 0 1 1 8 13.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    <path d="M2.5 5v3h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Limpiar
+                </button>
+              </div>
+            </form>
+
+            <!-- Formulario LatLon → UTM (oculto por defecto) -->
+            <form class="conv-form conv-form--hidden" id="form-latlon" novalidate aria-labelledby="input-panel-title" data-form="latlon">
+              <div class="form-field">
+                <label class="field-label" for="ll-lat">
+                  Latitud
+                  <span class="field-label-axis" aria-label="phi">φ</span>
+                </label>
+                <div class="field-wrapper">
+                  <input
+                    type="number"
+                    id="ll-lat"
+                    name="latitude"
+                    class="field-input field-input--mono"
+                    placeholder="-17.394821"
+                    step="0.000001"
+                    min="-90" max="90"
+                    inputmode="decimal"
+                    aria-describedby="ll-lat-desc"
+                    autocomplete="off"
+                  />
+                  <span class="field-unit" aria-hidden="true">°</span>
+                </div>
+                <span class="field-desc" id="ll-lat-desc">Grados decimales · −90 a +90 · Negativo = Sur</span>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label" for="ll-lon">
+                  Longitud
+                  <span class="field-label-axis" aria-label="lambda">λ</span>
+                </label>
+                <div class="field-wrapper">
+                  <input
+                    type="number"
+                    id="ll-lon"
+                    name="longitude"
+                    class="field-input field-input--mono"
+                    placeholder="-66.156092"
+                    step="0.000001"
+                    min="-180" max="180"
+                    inputmode="decimal"
+                    aria-describedby="ll-lon-desc"
+                    autocomplete="off"
+                  />
+                  <span class="field-unit" aria-hidden="true">°</span>
+                </div>
+                <span class="field-desc" id="ll-lon-desc">Grados decimales · −180 a +180 · Negativo = Oeste</span>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn-convert" aria-label="Convertir Latitud y Longitud a UTM">
+                  <span class="btn-convert-label">Convertir</span>
+                  <span class="btn-convert-icon" aria-hidden="true">→</span>
+                </button>
+                <button type="reset" class="btn-reset" aria-label="Limpiar formulario">
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M2.5 8A5.5 5.5 0 1 1 8 13.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                    <path d="M2.5 5v3h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Limpiar
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- PANEL DE RESULTADOS -->
+          <div class="conv-card conv-card--output" aria-live="polite" aria-atomic="true">
+            <div class="conv-card-header">
+              <div class="conv-card-title-row">
+                <span class="conv-card-icon conv-card-icon--out" aria-hidden="true">
+                  <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="9" cy="9" r="6.5" stroke="currentColor" stroke-width="1.2"/>
+                    <ellipse cx="9" cy="9" rx="3" ry="6.5" stroke="currentColor" stroke-width="0.8" opacity="0.6"/>
+                    <line x1="2.5" y1="9" x2="15.5" y2="9" stroke="currentColor" stroke-width="0.8" opacity="0.6"/>
+                    <circle cx="9" cy="9" r="1.8" fill="currentColor"/>
+                  </svg>
+                </span>
+                <h2 class="conv-card-title" id="output-panel-title">Resultado geográfico</h2>
+              </div>
+              <span class="conv-card-badge conv-card-badge--out">SALIDA</span>
+            </div>
+
+            <!-- Estado vacío -->
+            <div class="result-empty" id="result-empty" aria-label="Sin resultados aún">
+              <div class="result-empty-graphic" aria-hidden="true">
+                <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="40" cy="40" r="28" stroke="#38BDF8" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.3"/>
+                  <circle cx="40" cy="40" r="18" stroke="#A3FF12" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.2"/>
+                  <ellipse cx="40" cy="40" rx="28" ry="11" stroke="#38BDF8" stroke-width="0.6" opacity="0.2"/>
+                  <line x1="12" y1="40" x2="68" y2="40" stroke="#38BDF8" stroke-width="0.7" opacity="0.25"/>
+                  <line x1="40" y1="12" x2="40" y2="68" stroke="#38BDF8" stroke-width="0.7" opacity="0.25"/>
+                  <circle cx="40" cy="40" r="3.5" fill="#38BDF8" opacity="0.3"/>
+                  <circle cx="40" cy="40" r="1.5" fill="#38BDF8" opacity="0.5"/>
+                </svg>
+              </div>
+              <p class="result-empty-text">Ingresa las coordenadas y<br>presiona <strong>Convertir</strong></p>
+            </div>
+
+            <!-- Resultados (UTM → LatLon) -->
+            <div class="results-panel results-panel--hidden" id="results-geo">
+              <!-- Latitud -->
+              <div class="result-item">
+                <div class="result-item-header">
+                  <span class="result-item-label">Latitud</span>
+                  <span class="result-item-symbol" aria-hidden="true">φ</span>
+                </div>
+                <div class="result-item-value">
+                  <span class="result-number" id="res-lat-dd">—</span>
+                  <span class="result-deg" aria-hidden="true">°</span>
+                </div>
+                <div class="result-item-dms" id="res-lat-dms">—</div>
+              </div>
+              <!-- Longitud -->
+              <div class="result-item">
+                <div class="result-item-header">
+                  <span class="result-item-label">Longitud</span>
+                  <span class="result-item-symbol" aria-hidden="true">λ</span>
+                </div>
+                <div class="result-item-value">
+                  <span class="result-number" id="res-lon-dd">—</span>
+                  <span class="result-deg" aria-hidden="true">°</span>
+                </div>
+                <div class="result-item-dms" id="res-lon-dms">—</div>
+              </div>
+              <!-- Meta badges -->
+              <div class="result-meta" id="result-meta-geo">
+                <span class="result-meta-pill" id="meta-datum">WGS-84</span>
+                <span class="result-meta-pill" id="meta-zone">Zona —</span>
+                <span class="result-meta-pill" id="meta-hemi">—</span>
+              </div>
+              <!-- Acciones -->
+              <div class="result-actions">
+                <button class="btn-action" id="btn-copy-dd" aria-label="Copiar en grados decimales">
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="5.5" y="5.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.1"/>
+                    <path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                  </svg>
+                  Copiar DD
+                </button>
+                <button class="btn-action" id="btn-copy-dms" aria-label="Copiar en grados, minutos y segundos">
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="5.5" y="5.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.1"/>
+                    <path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                  </svg>
+                  Copiar DMS
+                </button>
+                <button class="btn-action btn-action--map" id="btn-open-map" aria-label="Ver punto en Google Maps">
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M8 1.5C5.51 1.5 3.5 3.51 3.5 6c0 3.75 4.5 8.5 4.5 8.5s4.5-4.75 4.5-8.5c0-2.49-2.01-4.5-4.5-4.5Z" stroke="currentColor" stroke-width="1.1"/>
+                    <circle cx="8" cy="6" r="1.5" stroke="currentColor" stroke-width="1"/>
+                  </svg>
+                  Ver en mapa
+                </button>
+              </div>
+            </div>
+
+            <!-- Resultados (LatLon → UTM) -->
+            <div class="results-panel results-panel--hidden" id="results-utm">
+              <!-- Este -->
+              <div class="result-item">
+                <div class="result-item-header">
+                  <span class="result-item-label">Coordenada Este</span>
+                  <span class="result-item-symbol" aria-hidden="true">X</span>
+                </div>
+                <div class="result-item-value">
+                  <span class="result-number" id="res-easting">—</span>
+                  <span class="result-unit-label" aria-hidden="true">m</span>
+                </div>
+              </div>
+              <!-- Norte -->
+              <div class="result-item">
+                <div class="result-item-header">
+                  <span class="result-item-label">Coordenada Norte</span>
+                  <span class="result-item-symbol" aria-hidden="true">Y</span>
+                </div>
+                <div class="result-item-value">
+                  <span class="result-number" id="res-northing">—</span>
+                  <span class="result-unit-label" aria-hidden="true">m</span>
+                </div>
+              </div>
+              <!-- Zona calculada -->
+              <div class="result-item result-item--compact">
+                <div class="result-item-header">
+                  <span class="result-item-label">Zona UTM</span>
+                </div>
+                <div class="result-item-value">
+                  <span class="result-number result-number--md" id="res-zone-calc">—</span>
+                </div>
+              </div>
+              <!-- Meta badges -->
+              <div class="result-meta">
+                <span class="result-meta-pill">WGS-84</span>
+                <span class="result-meta-pill">UTM</span>
+                <span class="result-meta-pill" id="meta-band">Banda —</span>
+              </div>
+              <!-- Acciones -->
+              <div class="result-actions">
+                <button class="btn-action" id="btn-copy-utm" aria-label="Copiar coordenadas UTM">
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <rect x="5.5" y="5.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.1"/>
+                    <path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                  </svg>
+                  Copiar UTM
+                </button>
+                <button class="btn-action btn-action--map" id="btn-open-map-ll" aria-label="Ver punto en Google Maps">
+                  <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M8 1.5C5.51 1.5 3.5 3.51 3.5 6c0 3.75 4.5 8.5 4.5 8.5s4.5-4.75 4.5-8.5c0-2.49-2.01-4.5-4.5-4.5Z" stroke="currentColor" stroke-width="1.1"/>
+                    <circle cx="8" cy="6" r="1.5" stroke="currentColor" stroke-width="1"/>
+                  </svg>
+                  Ver en mapa
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PANEL MASIVO ─────────────────────────── -->
+      <section
+        id="panel-batch"
+        class="batch-panel converter-panel--hidden"
+        role="tabpanel"
+        aria-labelledby="tab-batch"
+        aria-hidden="true"
+      >
+        <div class="batch-card">
+
+          <!-- Toolbar -->
+          <div class="batch-toolbar">
+            <div class="batch-toolbar-left">
+              <label class="btn-import" for="file-input" aria-label="Importar archivo CSV">
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M8 1.5v9M5 7.5l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M2.5 11.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                </svg>
+                Importar CSV
+                <input type="file" id="file-input" accept=".csv" class="sr-only" aria-label="Seleccionar archivo CSV" />
+              </label>
+              <button class="btn-add-row" id="btn-add-row" aria-label="Agregar fila manualmente">
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                Agregar fila
+              </button>
+              <button class="btn-convert-all" id="btn-convert-all" aria-label="Convertir todas las filas">
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M2.5 8a5.5 5.5 0 0 1 9.5-3.77" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                  <path d="M13.5 8a5.5 5.5 0 0 1-9.5 3.77" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                  <path d="M11 1.5l1.5 2.73L10 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M5 11l-1.5 2.5L6 14.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Convertir todo
+              </button>
+            </div>
+            <div class="batch-toolbar-right">
+              <span class="batch-stat" id="batch-stat">0 puntos</span>
+              <button class="btn-export-csv" id="btn-export-csv" aria-label="Exportar resultados como CSV" disabled>
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M8 10.5V1.5M5 7.5l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M2.5 11.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                </svg>
+                Exportar CSV
+              </button>
+            </div>
+          </div>
+
+          <!-- Formato esperado -->
+          <div class="batch-format-hint" id="batch-format-hint">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.1"/>
+              <path d="M8 7v5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              <circle cx="8" cy="5" r="0.8" fill="currentColor"/>
+            </svg>
+            <span>Formato CSV esperado:
+              <code>nombre, zona, hemisferio, este, norte</code>
+              — Ejemplo:
+              <code>PT-001, 19, S, 801234.000, 8074312.000</code>
+            </span>
+          </div>
+
+          <!-- Tabla -->
+          <div class="batch-table-wrapper" role="region" aria-label="Tabla de conversión masiva" tabindex="0">
+            <table class="batch-table" id="batch-table" aria-live="polite">
+              <thead>
+                <tr>
+                  <th scope="col">Punto</th>
+                  <th scope="col">Zona</th>
+                  <th scope="col">Hem.</th>
+                  <th scope="col">Este (X)</th>
+                  <th scope="col">Norte (Y)</th>
+                  <th scope="col">Latitud</th>
+                  <th scope="col">Longitud</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col" class="col-actions">
+                    <span class="sr-only">Acciones</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="batch-tbody">
+                <!-- Filas generadas por JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Estado vacío tabla -->
+          <div class="batch-empty" id="batch-empty">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="8" y="12" width="32" height="24" rx="3" stroke="currentColor" stroke-width="1.2"/>
+              <line x1="8" y1="20" x2="40" y2="20" stroke="currentColor" stroke-width="0.8"/>
+              <line x1="20" y1="20" x2="20" y2="36" stroke="currentColor" stroke-width="0.8"/>
+              <circle cx="24" cy="28" r="4" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2"/>
+            </svg>
+            <p>Importa un CSV o agrega filas manualmente para iniciar</p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── BARRA DE INFO ────────────────────────── -->
+      <div class="info-strip" aria-label="Información del sistema geodésico">
+        <div class="info-strip-item">
+          <span class="info-strip-key">Sistema</span>
+          <span class="info-strip-val">UTM</span>
+        </div>
+        <span class="info-strip-sep" aria-hidden="true"></span>
+        <div class="info-strip-item">
+          <span class="info-strip-key">Datum</span>
+          <span class="info-strip-val">WGS-84</span>
+        </div>
+        <span class="info-strip-sep" aria-hidden="true"></span>
+        <div class="info-strip-item">
+          <span class="info-strip-key">Elipsoide</span>
+          <span class="info-strip-val">GRS-80</span>
+        </div>
+        <span class="info-strip-sep" aria-hidden="true"></span>
+        <div class="info-strip-item">
+          <span class="info-strip-key">Precisión</span>
+          <span class="info-strip-val">±1 mm</span>
+        </div>
+        <span class="info-strip-sep" aria-hidden="true"></span>
+        <div class="info-strip-item">
+          <span class="info-strip-key">Zonas</span>
+          <span class="info-strip-val">1 – 60</span>
+        </div>
+      </div>
+
+    </div><!-- /container -->
+  </main>
+
+  <!-- ╔══════════════════════════════════════════════╗
+       ║  TOAST NOTIFICATIONS                         ║
+       ╚══════════════════════════════════════════════╝ -->
+  <div class="toast-container" id="toast-container" aria-live="assertive" aria-atomic="true" role="status"></div>
+
+  <!-- ╔══════════════════════════════════════════════╗
+       ║  FOOTER                                      ║
+       ╚══════════════════════════════════════════════╝ -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner container">
+      <div class="footer-brand">
+        <span class="footer-brand-name">AeroGeoTop</span>
+        <span class="footer-brand-tag">Geomática de precisión</span>
+      </div>
+      <nav class="footer-disciplines" aria-label="Disciplinas de AeroGeoTop">
+        <span>Topografía</span>
+        <span aria-hidden="true">·</span>
+        <span>Geodesia</span>
+        <span aria-hidden="true">·</span>
+        <span>SIG</span>
+        <span aria-hidden="true">·</span>
+        <span>Fotogrametría</span>
+        <span aria-hidden="true">·</span>
+        <span>Teledetección</span>
+      </nav>
+      <div class="footer-copy">
+        GeoToolkits &copy; <span id="footer-year"></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ╔══════════════════════════════════════════════╗
+       ║  MOBILE BOTTOM NAV                           ║
+       ╚══════════════════════════════════════════════╝ -->
+  <nav class="mobile-nav" aria-label="Navegación móvil" role="navigation">
+    <button class="mobile-nav-btn mobile-nav-btn--active" data-tab="individual" aria-label="Conversión individual" aria-pressed="true">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M10 2v16M2 10h16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <circle cx="10" cy="10" r="3.5" stroke="currentColor" stroke-width="1.1"/>
+      </svg>
+      <span>Individual</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="batch" aria-label="Conversión masiva" aria-pressed="false">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="2.5" y="4.5" width="15" height="11" rx="2" stroke="currentColor" stroke-width="1.2"/>
+        <line x1="2.5" y1="9" x2="17.5" y2="9" stroke="currentColor" stroke-width="0.8"/>
+        <line x1="8" y1="9" x2="8" y2="15.5" stroke="currentColor" stroke-width="0.8"/>
+      </svg>
+      <span>Masivo</span>
+    </button>
+  </nav>
+
+  <script src="script.js"></script>
 </body>
 </html>
