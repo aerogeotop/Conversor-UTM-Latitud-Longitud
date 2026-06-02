@@ -661,6 +661,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (fUtm) {
     fUtm.addEventListener('submit', (e) => {
       e.preventDefault();
+      if (fUtm.classList.contains('conv-form--hidden')) {
+        return;
+      }
 
       // Sanitización completa y estricta (Elimina comas, letras y espacios de las casillas numéricas)
       const zoneRaw    = document.getElementById('utm-zone').value.trim();
@@ -710,6 +713,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (fLatLon) {
     fLatLon.addEventListener('submit', (e) => {
       e.preventDefault();
+      if (fLatLon.classList.contains('conv-form--hidden')) {
+        return;
+      }
 
       const latRaw = document.getElementById('ll-lat').value.trim();
       const lonRaw = document.getElementById('ll-lon').value.trim();
