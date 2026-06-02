@@ -231,6 +231,7 @@ const TOAST_ICONS = {
 
 function showToast(message, type = 'info', duration = 3000) {
   const container = document.getElementById('toast-container');
+  if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast toast--${type}`;
   toast.innerHTML = `${TOAST_ICONS[type]}<span>${message}</span>`;
@@ -249,7 +250,6 @@ function showToast(message, type = 'info', duration = 3000) {
 async function copyToClipboard(text, btn) {
   try {
     await navigator.clipboard.writeText(text);
-    // Modificar solo el span de texto, nunca el innerHTML completo (que contiene el SVG)
     const labelSpan = btn.querySelector('.btn-action-label') || btn.querySelector('span:last-child') || btn;
     const originalText = labelSpan.textContent;
     btn.classList.add('copied');
@@ -294,29 +294,29 @@ function setMode(mode) {
   const resEmpty   = document.getElementById('result-empty');
 
   if (mode === 'utm') {
-    modeUtm.classList.add('mode-btn--active');
-    modeUtm.setAttribute('aria-pressed', 'true');
-    modeLatlon.classList.remove('mode-btn--active');
-    modeLatlon.setAttribute('aria-pressed', 'false');
-    formUtm.classList.remove('conv-form--hidden');
-    formLatlon.classList.add('conv-form--hidden');
-    inputTitle.textContent = 'Coordenadas UTM';
-    outTitle.textContent   = 'Resultado geográfico';
+    if (modeUtm) modeUtm.classList.add('mode-btn--active');
+    if (modeUtm) modeUtm.setAttribute('aria-pressed', 'true');
+    if (modeLatlon) modeLatlon.classList.remove('mode-btn--active');
+    if (modeLatlon) modeLatlon.setAttribute('aria-pressed', 'false');
+    if (formUtm) formUtm.classList.remove('conv-form--hidden');
+    if (formLatlon) formLatlon.classList.add('conv-form--hidden');
+    if (inputTitle) inputTitle.textContent = 'Coordenadas UTM';
+    if (outTitle) outTitle.textContent   = 'Resultado geográfico';
   } else {
-    modeLatlon.classList.add('mode-btn--active');
-    modeLatlon.setAttribute('aria-pressed', 'true');
-    modeUtm.classList.remove('mode-btn--active');
-    modeUtm.setAttribute('aria-pressed', 'false');
-    formLatlon.classList.remove('conv-form--hidden');
-    formUtm.classList.add('conv-form--hidden');
-    inputTitle.textContent = 'Coordenadas geográficas';
-    outTitle.textContent   = 'Resultado UTM';
+    if (modeLatlon) modeLatlon.classList.add('mode-btn--active');
+    if (modeLatlon) modeLatlon.setAttribute('aria-pressed', 'true');
+    if (modeUtm) modeUtm.classList.remove('mode-btn--active');
+    if (modeUtm) modeUtm.setAttribute('aria-pressed', 'false');
+    if (formLatlon) formLatlon.classList.remove('conv-form--hidden');
+    if (formUtm) formUtm.classList.add('conv-form--hidden');
+    if (inputTitle) inputTitle.textContent = 'Coordenadas geográficas';
+    if (outTitle) outTitle.textContent   = 'Resultado UTM';
   }
 
   // Resetear resultados al cambiar de modo
-  resGeo.classList.add('results-panel--hidden');
-  resUtm.classList.add('results-panel--hidden');
-  resEmpty.style.display = '';
+  if (resGeo) resGeo.classList.add('results-panel--hidden');
+  if (resUtm) resUtm.classList.add('results-panel--hidden');
+  if (resEmpty) resEmpty.style.display = '';
   state.lastGeo = null;
   state.lastUtm = null;
 }
@@ -325,8 +325,8 @@ function setMode(mode) {
 function displayGeoResult(result, zone, hemisphere) {
   const { lat, lon } = result;
 
-  // Guard: verificar que los valores son números finitos antes de renderizar
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+  // Validar numéricamente que la salida contenga valores reales calculables
+  if (isNaN(lat) || isNaN(lon)) {
     showToast('El resultado contiene valores inválidos. Verifica las coordenadas.', 'error');
     return;
   }
@@ -338,29 +338,26 @@ function displayGeoResult(result, zone, hemisphere) {
   document.getElementById('res-lon-dd').textContent  = lon.toFixed(6);
   document.getElementById('res-lon-dms').textContent = toDMS(lon, false);
 
-  // zone ya llega como número entero sanitizado desde el submit (parseInt)
   document.getElementById('meta-zone').textContent = `Zona ${zone}${getLatBand(lat)}`;
   document.getElementById('meta-hemi').textContent = hemisphere === 'S' ? 'Sur' : 'Norte';
 
   const resEmpty = document.getElementById('result-empty');
   const resGeo   = document.getElementById('results-geo');
-  resEmpty.style.display = 'none';
-  resGeo.classList.remove('results-panel--hidden');
-  document.getElementById('results-utm').classList.add('results-panel--hidden');
+  if (resEmpty) resEmpty.style.display = 'none';
+  if (resGeo) resGeo.classList.remove('results-panel--hidden');
+  const resUtm = document.getElementById('results-utm');
+  if (resUtm) resUtm.classList.add('results-panel--hidden');
 }
 
 /** Muestra resultado Lat/Lon → UTM */
 function displayUtmResult(result) {
   const { zone, hemisphere, band, easting, northing } = result;
 
-  // Guard: verificar que los valores son números finitos antes de renderizar
-  if (!Number.isFinite(easting) || !Number.isFinite(northing)) {
+  if (isNaN(easting) || isNaN(northing)) {
     showToast('El resultado contiene valores inválidos. Verifica las coordenadas.', 'error');
     return;
   }
 
-  // Guardar el resultado completo + las coordenadas de entrada (lat/lon)
-  // para que btn-open-map-ll pueda abrir Google Maps con el punto correcto
   state.lastUtm = result;
 
   document.getElementById('res-easting').textContent   = fmtNum(easting);
@@ -370,9 +367,10 @@ function displayUtmResult(result) {
 
   const resEmpty = document.getElementById('result-empty');
   const resUtm   = document.getElementById('results-utm');
-  resEmpty.style.display = 'none';
-  resUtm.classList.remove('results-panel--hidden');
-  document.getElementById('results-geo').classList.add('results-panel--hidden');
+  if (resEmpty) resEmpty.style.display = 'none';
+  if (resUtm) resUtm.classList.remove('results-panel--hidden');
+  const resGeo = document.getElementById('results-geo');
+  if (resGeo) resGeo.classList.add('results-panel--hidden');
 }
 
 /** Marca errores en campos del formulario */
@@ -410,19 +408,20 @@ function renderBatchTable() {
   const exportBtn = document.getElementById('btn-export-csv');
   const stat = document.getElementById('batch-stat');
 
+  if (!tbody) return;
   tbody.innerHTML = '';
 
   if (state.batchRows.length === 0) {
-    empty.style.display = '';
-    exportBtn.disabled = true;
-    stat.textContent = '0 puntos';
+    if (empty) empty.style.display = '';
+    if (exportBtn) exportBtn.disabled = true;
+    if (stat) stat.textContent = '0 puntos';
     return;
   }
 
-  empty.style.display = 'none';
+  if (empty) empty.style.display = 'none';
   const converted = state.batchRows.filter(r => r.status === 'ok').length;
-  stat.textContent = `${state.batchRows.length} punto${state.batchRows.length !== 1 ? 's' : ''} · ${converted} convertido${converted !== 1 ? 's' : ''}`;
-  exportBtn.disabled = converted === 0;
+  if (stat) stat.textContent = `${state.batchRows.length} punto${state.batchRows.length !== 1 ? 's' : ''} · ${converted} convertido${converted !== 1 ? 's' : ''}`;
+  if (exportBtn) exportBtn.disabled = converted === 0;
 
   state.batchRows.forEach(row => {
     const tr = document.createElement('tr');
@@ -434,10 +433,10 @@ function renderBatchTable() {
       error: `<span class="status-badge status-badge--error">Error</span>`,
     }[row.status];
 
-    const latHtml = row.lat !== null
+    const latHtml = (row.lat !== null && !isNaN(row.lat))
       ? `<span class="${row.status === 'ok' ? 'result-ok' : 'result-err'}">${row.lat.toFixed(6)}°</span>`
       : '—';
-    const lonHtml = row.lon !== null
+    const lonHtml = (row.lon !== null && !isNaN(row.lon))
       ? `<span class="${row.status === 'ok' ? 'result-ok' : 'result-err'}">${row.lon.toFixed(6)}°</span>`
       : '—';
 
@@ -450,8 +449,8 @@ function renderBatchTable() {
           <option value="S" ${row.hemisphere === 'S' ? 'selected' : ''}>S</option>
         </select>
       </td>
-      <td class="mono"><input type="number" value="${escHtml(row.easting)}"   data-field="easting"    step="0.001" inputmode="decimal" aria-label="Coordenada Este" /></td>
-      <td class="mono"><input type="number" value="${escHtml(row.northing)}"  data-field="northing"   step="0.001" inputmode="decimal" aria-label="Coordenada Norte" /></td>
+      <td class="mono"><input type="text" value="${escHtml(row.easting)}"   data-field="easting"   aria-label="Coordenada Este" /></td>
+      <td class="mono"><input type="text" value="${escHtml(row.northing)}"  data-field="northing"  aria-label="Coordenada Norte" /></td>
       <td class="mono">${latHtml}</td>
       <td class="mono">${lonHtml}</td>
       <td>${statusHtml}</td>
@@ -493,22 +492,23 @@ function renderBatchTable() {
   });
 }
 
-/** Escape de HTML para prevenir XSS en datos del usuario */
+/** Escape de HTML para prevenir XSS */
 function escHtml(str) {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"');
 }
 
 /** Parsea CSV e importa filas */
 function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
+  const lines = text.split(/\r?\n/);
   const rows  = [];
   let skipped = 0;
 
   lines.forEach((line, idx) => {
+    if (!line.trim()) return;
     // Ignorar encabezados
     if (idx === 0 && /nombre|name|punto|pt/i.test(line)) return;
 
@@ -519,10 +519,10 @@ function parseCSV(text) {
 
     rows.push(createBatchRow({
       name,
-      zone:       zone,
+      zone: zone,
       hemisphere: hemisphere.toUpperCase() === 'N' ? 'N' : 'S',
-      easting:    parseFloat(easting),
-      northing:   parseFloat(northing),
+      easting: easting,
+      northing: northing,
     }));
   });
 
@@ -560,7 +560,6 @@ function exportCSV() {
 function setTab(tab) {
   state.tab = tab;
 
-  // Limpiar resultados previos al cambiar de panel para evitar cruce de datos
   state.lastGeo = null;
   state.lastUtm = null;
 
@@ -572,25 +571,25 @@ function setTab(tab) {
   const mobileBatch   = document.querySelector('[data-tab="batch"].mobile-nav-btn');
 
   if (tab === 'individual') {
-    tabIndividual.classList.add('tab-btn--active');
-    tabIndividual.setAttribute('aria-selected', 'true');
-    tabBatch.classList.remove('tab-btn--active');
-    tabBatch.setAttribute('aria-selected', 'false');
-    panelInd.classList.remove('converter-panel--hidden');
-    panelInd.setAttribute('aria-hidden', 'false');
-    panelBatch.classList.add('converter-panel--hidden');
-    panelBatch.setAttribute('aria-hidden', 'true');
+    if (tabIndividual) tabIndividual.classList.add('tab-btn--active');
+    if (tabIndividual) tabIndividual.setAttribute('aria-selected', 'true');
+    if (tabBatch) tabBatch.classList.remove('tab-btn--active');
+    if (tabBatch) tabBatch.setAttribute('aria-selected', 'false');
+    if (panelInd) panelInd.classList.remove('converter-panel--hidden');
+    if (panelInd) panelInd.setAttribute('aria-hidden', 'false');
+    if (panelBatch) panelBatch.classList.add('converter-panel--hidden');
+    if (panelBatch) panelBatch.setAttribute('aria-hidden', 'true');
     if (mobileInd) { mobileInd.classList.add('mobile-nav-btn--active'); mobileInd.setAttribute('aria-pressed','true'); }
     if (mobileBatch) { mobileBatch.classList.remove('mobile-nav-btn--active'); mobileBatch.setAttribute('aria-pressed','false'); }
   } else {
-    tabBatch.classList.add('tab-btn--active');
-    tabBatch.setAttribute('aria-selected', 'true');
-    tabIndividual.classList.remove('tab-btn--active');
-    tabIndividual.setAttribute('aria-selected', 'false');
-    panelBatch.classList.remove('converter-panel--hidden');
-    panelBatch.setAttribute('aria-hidden', 'false');
-    panelInd.classList.add('converter-panel--hidden');
-    panelInd.setAttribute('aria-hidden', 'true');
+    if (tabBatch) tabBatch.classList.add('tab-btn--active');
+    if (tabBatch) tabBatch.setAttribute('aria-selected', 'true');
+    if (tabIndividual) tabIndividual.classList.remove('tab-btn--active');
+    if (tabIndividual) tabIndividual.setAttribute('aria-selected', 'false');
+    if (panelBatch) panelBatch.classList.remove('converter-panel--hidden');
+    if (panelBatch) panelBatch.setAttribute('aria-hidden', 'false');
+    if (panelInd) panelInd.classList.add('converter-panel--hidden');
+    if (panelInd) panelInd.setAttribute('aria-hidden', 'true');
     if (mobileBatch) { mobileBatch.classList.add('mobile-nav-btn--active'); mobileBatch.setAttribute('aria-pressed','true'); }
     if (mobileInd) { mobileInd.classList.remove('mobile-nav-btn--active'); mobileInd.setAttribute('aria-pressed','false'); }
     renderBatchTable();
@@ -637,12 +636,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
   /* — Modo UTM / LatLon — */
-  document.getElementById('mode-utm').addEventListener('click', () => setMode('utm'));
-  document.getElementById('mode-latlon').addEventListener('click', () => setMode('latlon'));
+  const mUtm = document.getElementById('mode-utm');
+  if (mUtm) mUtm.addEventListener('click', () => setMode('utm'));
+  const mLatLon = document.getElementById('mode-latlon');
+  if (mLatLon) mLatLon.addEventListener('click', () => setMode('latlon'));
 
   /* — Tabs individual / masivo — */
-  document.getElementById('tab-individual').addEventListener('click', () => setTab('individual'));
-  document.getElementById('tab-batch').addEventListener('click', () => setTab('batch'));
+  const tInd = document.getElementById('tab-individual');
+  if (tInd) tInd.addEventListener('click', () => setTab('individual'));
+  const tBatch = document.getElementById('tab-batch');
+  if (tBatch) tBatch.addEventListener('click', () => setTab('batch'));
 
   /* — Mobile nav — */
   document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
@@ -650,204 +653,253 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* — Compartir — */
-  document.getElementById('btn-share-tool').addEventListener('click', shareOrCopyUrl);
+  const bShare = document.getElementById('btn-share-tool');
+  if (bShare) bShare.addEventListener('click', shareOrCopyUrl);
 
   /* ── FORMULARIO UTM → LatLon ── */
-  document.getElementById('form-utm').addEventListener('submit', (e) => {
-    e.preventDefault();
+  const fUtm = document.getElementById('form-utm');
+  if (fUtm) {
+    fUtm.addEventListener('submit', (e) => {
+      e.preventDefault();
 
-    // Sanitización explícita de todos los valores antes de cualquier uso
-    const zoneRaw    = document.getElementById('utm-zone').value.trim();
-    const zone       = parseInt(zoneRaw, 10);           // Entero, base 10, 100% dinámico (1-60)
-    const hemisphere = document.getElementById('utm-hemisphere').value;
-    const easting    = parseFloat(document.getElementById('utm-easting').value);
-    const northing   = parseFloat(document.getElementById('utm-northing').value);
+      // Sanitización completa y estricta (Elimina comas, letras y espacios de las casillas numéricas)
+      const zoneRaw    = document.getElementById('utm-zone').value.trim();
+      const zone       = parseInt(zoneRaw.replace(/\D/g, ''), 10);
+      const hemisphere = document.getElementById('utm-hemisphere').value.trim().toUpperCase();
 
-    const errors = validateUTM(zone, hemisphere, easting, northing);
+      const eastingRaw  = document.getElementById('utm-easting').value.trim();
+      const northingRaw = document.getElementById('utm-northing').value.trim();
 
-    // Visual de errores por campo
-    setFieldError('utm-zone',       !Number.isInteger(zone) || zone < 1 || zone > 60);
-    setFieldError('utm-hemisphere', hemisphere !== 'N' && hemisphere !== 'S');
-    setFieldError('utm-easting',    !Number.isFinite(easting) || easting < 100000 || easting > 900000);
-    setFieldError('utm-northing',   !Number.isFinite(northing) || northing < 0 || northing > 10000000);
+      // Convierte comas en puntos y purga todo carácter no válido para cálculo lineal
+      const easting  = parseFloat(eastingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+      const northing = parseFloat(northingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
 
-    if (errors.length > 0) {
-      showToast(errors[0], 'error');
-      return;
-    }
+      const errors = validateUTM(zone, hemisphere, easting, northing);
 
-    try {
-      const result = utmToLatLon(zone, hemisphere, easting, northing);
-      displayGeoResult(result, zone, hemisphere);
-    } catch (err) {
-      showToast('Error en el cálculo. Verifica los datos ingresados.', 'error');
-      console.error('[GeoToolkits] UTM→LatLon error:', err);
-    }
-  });
+      setFieldError('utm-zone',       isNaN(zone) || zone < 1 || zone > 60);
+      setFieldError('utm-hemisphere', hemisphere !== 'N' && hemisphere !== 'S');
+      setFieldError('utm-easting',    isNaN(easting) || easting < 100000 || easting > 900000);
+      setFieldError('utm-northing',   isNaN(northing) || northing < 0 || northing > 10000000);
 
-  /* — Reset UTM form — */
-  document.getElementById('form-utm').addEventListener('reset', () => {
-    ['utm-zone','utm-hemisphere','utm-easting','utm-northing'].forEach(id => setFieldError(id, false));
-    document.getElementById('results-geo').classList.add('results-panel--hidden');
-    document.getElementById('result-empty').style.display = '';
-    state.lastGeo = null;
-  });
+      if (errors.length > 0) {
+        showToast(errors[0], 'error');
+        return;
+      }
 
-  /* ── FORMULARIO LatLon → UTM ── */
-  document.getElementById('form-latlon').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const lat = parseFloat(document.getElementById('ll-lat').value);
-    const lon = parseFloat(document.getElementById('ll-lon').value);
-
-    const errors = validateLatLon(lat, lon);
-    setFieldError('ll-lat', isNaN(lat) || lat < -90 || lat > 90);
-    setFieldError('ll-lon', isNaN(lon) || lon < -180 || lon > 180);
-
-    if (errors.length > 0) {
-      showToast(errors[0], 'error');
-      return;
-    }
-
-    try {
-      const result = latLonToUtm(lat, lon);
-      displayUtmResult(result);
-    } catch (err) {
-      showToast('Error en el cálculo. Verifica los datos ingresados.', 'error');
-      console.error('[GeoToolkits] LatLon→UTM error:', err);
-    }
-  });
-
-  /* — Reset LatLon form — */
-  document.getElementById('form-latlon').addEventListener('reset', () => {
-    ['ll-lat','ll-lon'].forEach(id => setFieldError(id, false));
-    document.getElementById('results-utm').classList.add('results-panel--hidden');
-    document.getElementById('result-empty').style.display = '';
-    state.lastUtm = null;
-  });
-
-  /* ── BOTONES DE COPIA — UTM → LatLon ── */
-  document.getElementById('btn-copy-dd').addEventListener('click', function() {
-    if (!state.lastGeo) return;
-    const { lat, lon } = state.lastGeo;
-    copyToClipboard(`${lat.toFixed(6)}, ${lon.toFixed(6)}`, this);
-  });
-
-  document.getElementById('btn-copy-dms').addEventListener('click', function() {
-    if (!state.lastGeo) return;
-    const { lat, lon } = state.lastGeo;
-    copyToClipboard(`${toDMS(lat, true)}, ${toDMS(lon, false)}`, this);
-  });
-
-  /* ── BOTÓN DE COPIA — LatLon → UTM ── */
-  document.getElementById('btn-copy-utm').addEventListener('click', function() {
-    if (!state.lastUtm) return;
-    const { zone, hemisphere, band, easting, northing } = state.lastUtm;
-    const txt = `Zona ${zone}${band} ${hemisphere} · E: ${easting.toFixed(3)} · N: ${northing.toFixed(3)}`;
-    copyToClipboard(txt, this);
-  });
-
-  /* ── VER EN MAPA — Google Maps ── */
-  function openGoogleMaps(lat, lon) {
-    const url = `https://maps.google.com/?q=${lat},${lon}&z=15`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
-
-  document.getElementById('btn-open-map').addEventListener('click', () => {
-    if (!state.lastGeo) return;
-    openGoogleMaps(state.lastGeo.lat, state.lastGeo.lon);
-  });
-
-  document.getElementById('btn-open-map-ll').addEventListener('click', () => {
-    // En modo LatLon→UTM, las coordenadas de entrada son ll-lat y ll-lon.
-    // state.lastGeo solo existe en modo UTM→LatLon; no lo usamos aquí.
-    const lat = parseFloat(document.getElementById('ll-lat').value);
-    const lon = parseFloat(document.getElementById('ll-lon').value);
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      openGoogleMaps(lat, lon);
-    } else {
-      showToast('Ingresa coordenadas válidas antes de ver en el mapa', 'info');
-    }
-  });
-
-  /* ── BATCH: agregar fila — */
-  document.getElementById('btn-add-row').addEventListener('click', () => {
-    state.batchRows.push(createBatchRow());
-    renderBatchTable();
-  });
-
-  /* ── BATCH: convertir todo — */
-  document.getElementById('btn-convert-all').addEventListener('click', () => {
-    if (state.batchRows.length === 0) {
-      showToast('No hay filas para convertir', 'info');
-      return;
-    }
-
-    let converted = 0;
-    let failed = 0;
-
-    state.batchRows.forEach(row => {
-      const zone  = parseInt(row.zone, 10);
-      const hem   = row.hemisphere;
-      const east  = parseFloat(row.easting);
-      const north = parseFloat(row.northing);
-      const errs  = validateUTM(zone, hem, east, north);
-
-      if (errs.length > 0) {
-        row.status = 'error';
-        row.lat = null;
-        row.lon = null;
-        failed++;
-      } else {
-        try {
-          const res = utmToLatLon(zone, hem, east, north);
-          row.lat = res.lat;
-          row.lon = res.lon;
-          row.status = 'ok';
-          converted++;
-        } catch {
-          row.status = 'error';
-          failed++;
-        }
+      try {
+        const result = utmToLatLon(zone, hemisphere, easting, northing);
+        displayGeoResult(result, zone, hemisphere);
+      } catch (err) {
+        showToast('Error en el cálculo. Verifica los datos ingresados.', 'error');
+        console.error('[GeoToolkits] UTM→LatLon error:', err);
       }
     });
 
-    renderBatchTable();
+    fUtm.addEventListener('reset', () => {
+      ['utm-zone','utm-hemisphere','utm-easting','utm-northing'].forEach(id => setFieldError(id, false));
+      const rGeo = document.getElementById('results-geo');
+      if (rGeo) rGeo.classList.add('results-panel--hidden');
+      const rEmpty = document.getElementById('result-empty');
+      if (rEmpty) rEmpty.style.display = '';
+      state.lastGeo = null;
+    });
+  }
 
-    if (failed === 0) {
-      showToast(`${converted} punto${converted !== 1 ? 's' : ''} convertido${converted !== 1 ? 's' : ''} correctamente`, 'success');
-    } else {
-      showToast(`${converted} OK · ${failed} con error`, 'info');
-    }
-  });
+  /* ── FORMULARIO LatLon → UTM ── */
+  const fLatLon = document.getElementById('form-latlon');
+  if (fLatLon) {
+    fLatLon.addEventListener('submit', (e) => {
+      e.preventDefault();
 
-  /* ── BATCH: importar CSV — */
-  document.getElementById('file-input').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (!file.name.endsWith('.csv')) {
-      showToast('Solo se aceptan archivos .csv', 'error');
-      return;
-    }
+      const latRaw = document.getElementById('ll-lat').value.trim();
+      const lonRaw = document.getElementById('ll-lon').value.trim();
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const { rows, skipped } = parseCSV(ev.target.result);
-      if (rows.length === 0) {
-        showToast('No se encontraron filas válidas en el CSV', 'error');
+      const lat = parseFloat(latRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+      const lon = parseFloat(lonRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+
+      const errors = validateLatLon(lat, lon);
+      setFieldError('ll-lat', isNaN(lat) || lat < -90 || lat > 90);
+      setFieldError('ll-lon', isNaN(lon) || lon < -180 || lon > 180);
+
+      if (errors.length > 0) {
+        showToast(errors[0], 'error');
         return;
       }
-      state.batchRows.push(...rows);
+
+      try {
+        const result = latLonToUtm(lat, lon);
+        displayUtmResult(result);
+      } catch (err) {
+        showToast('Error en el cálculo. Verifica los datos ingresados.', 'error');
+        console.error('[GeoToolkits] LatLon→UTM error:', err);
+      }
+    });
+
+    fLatLon.addEventListener('reset', () => {
+      ['ll-lat','ll-lon'].forEach(id => setFieldError(id, false));
+      const rUtm = document.getElementById('results-utm');
+      if (rUtm) rUtm.classList.add('results-panel--hidden');
+      const rEmpty = document.getElementById('result-empty');
+      if (rEmpty) rEmpty.style.display = '';
+      state.lastUtm = null;
+    });
+  }
+
+  /* ── BOTONES DE COPIA ── */
+  const bCopyDD = document.getElementById('btn-copy-dd');
+  if (bCopyDD) {
+    bCopyDD.addEventListener('click', function() {
+      if (!state.lastGeo) return;
+      const { lat, lon } = state.lastGeo;
+      copyToClipboard(`${lat.toFixed(6)}, ${lon.toFixed(6)}`, this);
+    });
+  }
+
+  const bCopyDMS = document.getElementById('btn-copy-dms');
+  if (bCopyDMS) {
+    bCopyDMS.addEventListener('click', function() {
+      if (!state.lastGeo) return;
+      const { lat, lon } = state.lastGeo;
+      copyToClipboard(`${toDMS(lat, true)}, ${toDMS(lon, false)}`, this);
+    });
+  }
+
+  const bCopyUtm = document.getElementById('btn-copy-utm');
+  if (bCopyUtm) {
+    bCopyUtm.addEventListener('click', function() {
+      if (!state.lastUtm) return;
+      const { zone, hemisphere, band, easting, northing } = state.lastUtm;
+      const txt = `Zona ${zone}${band} ${hemisphere} · E: ${easting.toFixed(3)} · N: ${northing.toFixed(3)}`;
+      copyToClipboard(txt, this);
+    });
+  }
+
+  /* ── ENLACE DE MAPAS OFICIAL (GOOGLE MAPS) ── */
+  function openGoogleMaps(lat, lon) {
+    const url = `https://www.google.com/maps?q=${lat},${lon}&z=15&t=k`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  const bOpenMap = document.getElementById('btn-open-map');
+  if (bOpenMap) {
+    bOpenMap.addEventListener('click', () => {
+      if (!state.lastGeo) return;
+      openGoogleMaps(state.lastGeo.lat, state.lastGeo.lon);
+    });
+  }
+
+  const bOpenMapLL = document.getElementById('btn-open-map-ll');
+  if (bOpenMapLL) {
+    bOpenMapLL.addEventListener('click', () => {
+      const latRaw = document.getElementById('ll-lat').value.trim();
+      const lonRaw = document.getElementById('ll-lon').value.trim();
+      const lat = parseFloat(latRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+      const lon = parseFloat(lonRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+      if (!isNaN(lat) && !isNaN(lon)) {
+        openGoogleMaps(lat, lon);
+      } else {
+        showToast('Ingresa coordenadas válidas antes de ver en el mapa', 'info');
+      }
+    });
+  }
+
+  /* ── BATCH: agregar fila ── */
+  const bAddRow = document.getElementById('btn-add-row');
+  if (bAddRow) {
+    bAddRow.addEventListener('click', () => {
+      state.batchRows.push(createBatchRow());
       renderBatchTable();
-      setTab('batch');
-      showToast(`${rows.length} filas importadas${skipped > 0 ? ` · ${skipped} omitidas` : ''}`, 'success');
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  });
+    });
+  }
 
-  /* ── BATCH: exportar CSV — */
-  document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
+  /* ── BATCH: convertir todo ── */
+  const bConvertAll = document.getElementById('btn-convert-all');
+  if (bConvertAll) {
+    bConvertAll.addEventListener('click', () => {
+      if (state.batchRows.length === 0) {
+        showToast('No hay filas para convertir', 'info');
+        return;
+      }
 
-  /* ── INICIALIZAR tabla batch vacía — */
+      let converted = 0;
+      let failed = 0;
+
+      state.batchRows.forEach(row => {
+        // Sanitizar datos ingresados en la celda masiva antes de validar
+        const zClean = String(row.zone).trim().replace(/\D/g, '');
+        const zone  = parseInt(zClean, 10);
+        const hem   = String(row.hemisphere).trim().toUpperCase();
+
+        const eClean = String(row.easting).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
+        const nClean = String(row.northing).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
+        const east  = parseFloat(eClean);
+        const north = parseFloat(nClean);
+
+        const errs  = validateUTM(zone, hem, east, north);
+
+        if (errs.length > 0) {
+          row.status = 'error';
+          row.lat = null;
+          row.lon = null;
+          failed++;
+        } else {
+          try {
+            const res = utmToLatLon(zone, hem, east, north);
+            row.lat = res.lat;
+            row.lon = res.lon;
+            row.status = 'ok';
+            converted++;
+          } catch {
+            row.status = 'error';
+            row.lat = null;
+            row.lon = null;
+            failed++;
+          }
+        }
+      });
+
+      renderBatchTable();
+
+      if (failed === 0) {
+        showToast(`${converted} puntos convertidos correctamente`, 'success');
+      } else {
+        showToast(`${converted} OK · ${failed} con error`, 'info');
+      }
+    });
+  }
+
+  /* ── BATCH: importar CSV ── */
+  const fInput = document.getElementById('file-input');
+  if (fInput) {
+    fInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!file.name.endsWith('.csv')) {
+        showToast('Solo se aceptan archivos .csv', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const { rows, skipped } = parseCSV(ev.target.result);
+        if (rows.length === 0) {
+          showToast('No se encontraron filas válidas en el CSV', 'error');
+          return;
+        }
+        state.batchRows.push(...rows);
+        renderBatchTable();
+        setTab('batch');
+        showToast(`${rows.length} filas importadas${skipped > 0 ? ` · ${skipped} omitidas` : ''}`, 'success');
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+  }
+
+  /* ── BATCH: exportar CSV ── */
+  const bExport = document.getElementById('btn-export-csv');
+  if (bExport) bExport.addEventListener('click', exportCSV);
+
+  /* — Inicializar — */
   renderBatchTable();
 });
