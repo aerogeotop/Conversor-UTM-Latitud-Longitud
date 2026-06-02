@@ -633,11 +633,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('form-utm').addEventListener('submit', (e) => {
     e.preventDefault();
     const zoneRaw     = document.getElementById('utm-zone').value.trim();
-    const hemisphere  = document.getElementById('utm-hemisphere').value;
+    const hemisphere  = document.getElementById('utm-hemisphere').value.trim().toUpperCase();
     const eastingRaw  = document.getElementById('utm-easting').value.trim();
     const northingRaw = document.getElementById('utm-northing').value.trim();
 
-    const zone     = parseInt(zoneRaw.replace(/[^\d-]/g, ''), 10);
+    const zone     = parseInt(zoneRaw.replace(/\D/g, ''), 10);
     const easting  = parseFloat(eastingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
     const northing = parseFloat(northingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
 
@@ -764,8 +764,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let failed = 0;
 
     state.batchRows.forEach(row => {
-      const zoneStr  = String(row.zone).trim().replace(/[^\d-]/g, '');
-      const hem      = row.hemisphere;
+      const zoneStr  = String(row.zone).trim().replace(/\D/g, '');
+      const hem      = String(row.hemisphere).trim().toUpperCase();
       const eastStr  = String(row.easting).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
       const northStr = String(row.northing).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
       const zone  = parseInt(zoneStr, 10);
