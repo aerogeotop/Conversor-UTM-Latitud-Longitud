@@ -249,12 +249,14 @@ function showToast(message, type = 'info', duration = 3000) {
 async function copyToClipboard(text, btn) {
   try {
     await navigator.clipboard.writeText(text);
-    const original = btn.innerHTML;
+    // Modificar solo el span de texto, nunca el innerHTML completo (que contiene el SVG)
+    const labelSpan = btn.querySelector('.btn-action-label') || btn.querySelector('span:last-child') || btn;
+    const originalText = labelSpan.textContent;
     btn.classList.add('copied');
-    btn.innerHTML = btn.innerHTML.replace(/Copiar\s\w+/, 'Copiado ✓');
+    labelSpan.textContent = 'Copiado ✓';
     showToast('Copiado al portapapeles', 'success', 2000);
     setTimeout(() => {
-      btn.innerHTML = original;
+      labelSpan.textContent = originalText;
       btn.classList.remove('copied');
     }, 2000);
   } catch {
@@ -322,6 +324,13 @@ function setMode(mode) {
 /** Muestra resultado UTM → Lat/Lon */
 function displayGeoResult(result, zone, hemisphere) {
   const { lat, lon } = result;
+
+  // Guard: verificar que los valores son números finitos antes de renderizar
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    showToast('El resultado contiene valores inválidos. Verifica las coordenadas.', 'error');
+    return;
+  }
+
   state.lastGeo = { lat, lon };
 
   document.getElementById('res-lat-dd').textContent  = lat.toFixed(6);
@@ -329,6 +338,7 @@ function displayGeoResult(result, zone, hemisphere) {
   document.getElementById('res-lon-dd').textContent  = lon.toFixed(6);
   document.getElementById('res-lon-dms').textContent = toDMS(lon, false);
 
+  // zone ya llega como número entero sanitizado desde el submit (parseInt)
   document.getElementById('meta-zone').textContent = `Zona ${zone}${getLatBand(lat)}`;
   document.getElementById('meta-hemi').textContent = hemisphere === 'S' ? 'Sur' : 'Norte';
 
@@ -342,12 +352,21 @@ function displayGeoResult(result, zone, hemisphere) {
 /** Muestra resultado Lat/Lon → UTM */
 function displayUtmResult(result) {
   const { zone, hemisphere, band, easting, northing } = result;
+
+  // Guard: verificar que los valores son números finitos antes de renderizar
+  if (!Number.isFinite(easting) || !Number.isFinite(northing)) {
+    showToast('El resultado contiene valores inválidos. Verifica las coordenadas.', 'error');
+    return;
+  }
+
+  // Guardar el resultado completo + las coordenadas de entrada (lat/lon)
+  // para que btn-open-map-ll pueda abrir Google Maps con el punto correcto
   state.lastUtm = result;
 
-  document.getElementById('res-easting').textContent  = fmtNum(easting);
-  document.getElementById('res-northing').textContent = fmtNum(northing);
+  document.getElementById('res-easting').textContent   = fmtNum(easting);
+  document.getElementById('res-northing').textContent  = fmtNum(northing);
   document.getElementById('res-zone-calc').textContent = `${zone}${band} · ${hemisphere === 'S' ? 'Sur' : 'Norte'}`;
-  document.getElementById('meta-band').textContent = `Banda ${band}`;
+  document.getElementById('meta-band').textContent     = `Banda ${band}`;
 
   const resEmpty = document.getElementById('result-empty');
   const resUtm   = document.getElementById('results-utm');
@@ -541,6 +560,10 @@ function exportCSV() {
 function setTab(tab) {
   state.tab = tab;
 
+  // Limpiar resultados previos al cambiar de panel para evitar cruce de datos
+  state.lastGeo = null;
+  state.lastUtm = null;
+
   const tabIndividual = document.getElementById('tab-individual');
   const tabBatch      = document.getElementById('tab-batch');
   const panelInd      = document.getElementById('panel-individual');
@@ -632,22 +655,21 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ── FORMULARIO UTM → LatLon ── */
   document.getElementById('form-utm').addEventListener('submit', (e) => {
     e.preventDefault();
-    const zoneRaw     = document.getElementById('utm-zone').value.trim();
-    const hemisphere  = document.getElementById('utm-hemisphere').value.trim().toUpperCase();
-    const eastingRaw  = document.getElementById('utm-easting').value.trim();
-    const northingRaw = document.getElementById('utm-northing').value.trim();
 
-    const zone     = parseInt(zoneRaw.replace(/\D/g, ''), 10);
-    const easting  = parseFloat(eastingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
-    const northing = parseFloat(northingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+    // Sanitización explícita de todos los valores antes de cualquier uso
+    const zoneRaw    = document.getElementById('utm-zone').value.trim();
+    const zone       = parseInt(zoneRaw, 10);           // Entero, base 10, 100% dinámico (1-60)
+    const hemisphere = document.getElementById('utm-hemisphere').value;
+    const easting    = parseFloat(document.getElementById('utm-easting').value);
+    const northing   = parseFloat(document.getElementById('utm-northing').value);
 
     const errors = validateUTM(zone, hemisphere, easting, northing);
 
-    // Visual de errores
-    setFieldError('utm-zone',       !zone || zone < 1 || zone > 60);
+    // Visual de errores por campo
+    setFieldError('utm-zone',       !Number.isInteger(zone) || zone < 1 || zone > 60);
     setFieldError('utm-hemisphere', hemisphere !== 'N' && hemisphere !== 'S');
-    setFieldError('utm-easting',    isNaN(easting) || easting < 100000 || easting > 900000);
-    setFieldError('utm-northing',   isNaN(northing) || northing < 0 || northing > 10000000);
+    setFieldError('utm-easting',    !Number.isFinite(easting) || easting < 100000 || easting > 900000);
+    setFieldError('utm-northing',   !Number.isFinite(northing) || northing < 0 || northing > 10000000);
 
     if (errors.length > 0) {
       showToast(errors[0], 'error');
@@ -674,10 +696,8 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ── FORMULARIO LatLon → UTM ── */
   document.getElementById('form-latlon').addEventListener('submit', (e) => {
     e.preventDefault();
-    const latRaw = document.getElementById('ll-lat').value.trim();
-    const lonRaw = document.getElementById('ll-lon').value.trim();
-    const lat = parseFloat(latRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
-    const lon = parseFloat(lonRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+    const lat = parseFloat(document.getElementById('ll-lat').value);
+    const lon = parseFloat(document.getElementById('ll-lon').value);
 
     const errors = validateLatLon(lat, lon);
     setFieldError('ll-lat', isNaN(lat) || lat < -90 || lat > 90);
@@ -738,12 +758,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btn-open-map-ll').addEventListener('click', () => {
-    if (!state.lastGeo) {
-      const lat = parseFloat(document.getElementById('ll-lat').value);
-      const lon = parseFloat(document.getElementById('ll-lon').value);
-      if (!isNaN(lat) && !isNaN(lon)) openGoogleMaps(lat, lon);
+    // En modo LatLon→UTM, las coordenadas de entrada son ll-lat y ll-lon.
+    // state.lastGeo solo existe en modo UTM→LatLon; no lo usamos aquí.
+    const lat = parseFloat(document.getElementById('ll-lat').value);
+    const lon = parseFloat(document.getElementById('ll-lon').value);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      openGoogleMaps(lat, lon);
     } else {
-      openGoogleMaps(state.lastGeo.lat, state.lastGeo.lon);
+      showToast('Ingresa coordenadas válidas antes de ver en el mapa', 'info');
     }
   });
 
@@ -764,13 +786,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let failed = 0;
 
     state.batchRows.forEach(row => {
-      const zoneStr  = String(row.zone).trim().replace(/\D/g, '');
-      const hem      = String(row.hemisphere).trim().toUpperCase();
-      const eastStr  = String(row.easting).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
-      const northStr = String(row.northing).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
-      const zone  = parseInt(zoneStr, 10);
-      const east  = parseFloat(eastStr);
-      const north = parseFloat(northStr);
+      const zone  = parseInt(row.zone, 10);
+      const hem   = row.hemisphere;
+      const east  = parseFloat(row.easting);
+      const north = parseFloat(row.northing);
       const errs  = validateUTM(zone, hem, east, north);
 
       if (errs.length > 0) {
