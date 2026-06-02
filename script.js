@@ -632,10 +632,14 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ── FORMULARIO UTM → LatLon ── */
   document.getElementById('form-utm').addEventListener('submit', (e) => {
     e.preventDefault();
-    const zone       = parseInt(document.getElementById('utm-zone').value, 10);
-    const hemisphere = document.getElementById('utm-hemisphere').value;
-    const easting    = parseFloat(document.getElementById('utm-easting').value);
-    const northing   = parseFloat(document.getElementById('utm-northing').value);
+    const zoneRaw     = document.getElementById('utm-zone').value.trim();
+    const hemisphere  = document.getElementById('utm-hemisphere').value;
+    const eastingRaw  = document.getElementById('utm-easting').value.trim();
+    const northingRaw = document.getElementById('utm-northing').value.trim();
+
+    const zone     = parseInt(zoneRaw.replace(/[^\d-]/g, ''), 10);
+    const easting  = parseFloat(eastingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+    const northing = parseFloat(northingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
 
     const errors = validateUTM(zone, hemisphere, easting, northing);
 
@@ -670,8 +674,10 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ── FORMULARIO LatLon → UTM ── */
   document.getElementById('form-latlon').addEventListener('submit', (e) => {
     e.preventDefault();
-    const lat = parseFloat(document.getElementById('ll-lat').value);
-    const lon = parseFloat(document.getElementById('ll-lon').value);
+    const latRaw = document.getElementById('ll-lat').value.trim();
+    const lonRaw = document.getElementById('ll-lon').value.trim();
+    const lat = parseFloat(latRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
+    const lon = parseFloat(lonRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
 
     const errors = validateLatLon(lat, lon);
     setFieldError('ll-lat', isNaN(lat) || lat < -90 || lat > 90);
@@ -758,10 +764,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let failed = 0;
 
     state.batchRows.forEach(row => {
-      const zone  = parseInt(row.zone, 10);
-      const hem   = row.hemisphere;
-      const east  = parseFloat(row.easting);
-      const north = parseFloat(row.northing);
+      const zoneStr  = String(row.zone).trim().replace(/[^\d-]/g, '');
+      const hem      = row.hemisphere;
+      const eastStr  = String(row.easting).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
+      const northStr = String(row.northing).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
+      const zone  = parseInt(zoneStr, 10);
+      const east  = parseFloat(eastStr);
+      const north = parseFloat(northStr);
       const errs  = validateUTM(zone, hem, east, north);
 
       if (errs.length > 0) {
