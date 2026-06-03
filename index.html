@@ -31,6 +31,7 @@
     <div class="bg-glow bg-glow-tl"></div>
     <div class="bg-glow bg-glow-br"></div>
     <div class="bg-grid"></div>
+    <div class="bg-contours"></div>
   </div>
 
   <!-- ╔══════════════════════════════════════════════╗
@@ -42,30 +43,7 @@
       <!-- Logotipo SVG personalizado -->
       <a href="#" class="brand" aria-label="GeoToolkits by AeroGeoTop — inicio">
         <div class="brand-logo" aria-hidden="true">
-          <!-- Logo GeoToolkits: representa un punto geodésico con meridianos y paralelos -->
-          <svg class="logo-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <!-- Elipse exterior (horizonte) -->
-            <ellipse cx="22" cy="22" rx="19" ry="19" stroke="#38BDF8" stroke-width="1" opacity="0.35"/>
-            <!-- Meridiano vertical -->
-            <ellipse cx="22" cy="22" rx="7.5" ry="19" stroke="#38BDF8" stroke-width="0.8" opacity="0.45"/>
-            <!-- Paralelo horizontal central -->
-            <ellipse cx="22" cy="22" rx="19" ry="7.5" stroke="#38BDF8" stroke-width="0.8" opacity="0.45"/>
-            <!-- Paralelo superior -->
-            <ellipse cx="22" cy="14" rx="14" ry="3.5" stroke="#38BDF8" stroke-width="0.6" opacity="0.25"/>
-            <!-- Paralelo inferior -->
-            <ellipse cx="22" cy="30" rx="14" ry="3.5" stroke="#38BDF8" stroke-width="0.6" opacity="0.25"/>
-            <!-- Cruz de punto geodésico -->
-            <line x1="22" y1="3" x2="22" y2="41" stroke="#A3FF12" stroke-width="1.2" opacity="0.6"/>
-            <line x1="3" y1="22" x2="41" y2="22" stroke="#A3FF12" stroke-width="1.2" opacity="0.6"/>
-            <!-- Punto central (vértice geodésico) -->
-            <circle cx="22" cy="22" r="3.5" fill="#A3FF12"/>
-            <circle cx="22" cy="22" r="1.5" fill="#0A0A0A"/>
-            <!-- Marcadores cardinales -->
-            <rect x="20.5" y="1" width="3" height="4" rx="1" fill="#A3FF12" opacity="0.8"/>
-            <rect x="20.5" y="39" width="3" height="4" rx="1" fill="#A3FF12" opacity="0.8"/>
-            <rect x="1" y="20.5" width="4" height="3" rx="1" fill="#A3FF12" opacity="0.8"/>
-            <rect x="39" y="20.5" width="4" height="3" rx="1" fill="#A3FF12" opacity="0.8"/>
-          </svg>
+          <img class="brand-image" src="images/LOGO%20AeroGeoTop.png" alt="Logo AeroGeoTop" />
         </div>
         <div class="brand-text">
           <span class="brand-name">GeoToolkits</span>
@@ -567,14 +545,57 @@
             </div>
             <div class="batch-toolbar-right">
               <span class="batch-stat" id="batch-stat">0 puntos</span>
-              <button class="btn-export-csv" id="btn-export-csv" aria-label="Exportar resultados como CSV" disabled>
+              <button class="btn-log-history" id="btn-history" aria-label="Mostrar historial de importaciones" disabled>
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M4 3h8M4 7h8M4 11h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                  <rect x="1.5" y="1.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.1"/>
+                </svg>
+                Historial
+              </button>
+              <button class="btn-copy-all" id="btn-copy-all" aria-label="Copiar todo al portapapeles" disabled>
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M5 2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1H5Z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>
+                  <path d="M11 5h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Copiar todo
+              </button>
+              <button class="btn-export-csv" id="btn-export-csv" aria-label="Exportar resultados a Excel" disabled>
                 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <path d="M8 10.5V1.5M5 7.5l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
                   <path d="M2.5 11.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
                 </svg>
-                Exportar CSV
+                Exportar Excel
+              </button>
+              <button class="btn-export-dxf" id="btn-export-dxf" aria-label="Exportar a AutoCAD DXF" disabled>
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M4 3h8M4 8h8M4 13h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                  <path d="M3 14l2-2 2 2 2-2 2 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                </svg>
+                Exportar DXF
+              </button>
+              <button class="btn-export-sig" id="btn-export-sig" aria-label="Exportar a GeoJSON" disabled>
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M4 4h8M4 8h8M4 12h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                  <circle cx="12" cy="4" r="1.2" fill="currentColor"/>
+                </svg>
+                Exportar SIG
+              </button>
+              <button class="btn-export-kml" id="btn-export-kml" aria-label="Exportar puntos a KML" disabled>
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M4 3h8M4 7h8M4 11h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                  <path d="M3 13l2-2 2 2 2-2 2 2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+                </svg>
+                Exportar KML
               </button>
             </div>
+          </div>
+
+          <div class="history-panel" id="batch-history-panel" aria-live="polite" hidden>
+            <div class="history-panel-header">
+              <span>Historial de importaciones</span>
+              <button class="history-close" id="btn-history-close" aria-label="Cerrar historial">×</button>
+            </div>
+            <div class="history-panel-content" id="history-panel-content"></div>
           </div>
 
           <!-- Formato esperado -->
@@ -601,8 +622,10 @@
                   <th scope="col">Hem.</th>
                   <th scope="col">Este (X)</th>
                   <th scope="col">Norte (Y)</th>
-                  <th scope="col">Latitud</th>
-                  <th scope="col">Longitud</th>
+                  <th scope="col">Latitud (DD)</th>
+                  <th scope="col">Longitud (DD)</th>
+                  <th scope="col">Latitud (DMS)</th>
+                  <th scope="col">Longitud (DMS)</th>
                   <th scope="col">Estado</th>
                   <th scope="col" class="col-actions">
                     <span class="sr-only">Acciones</span>
@@ -683,6 +706,8 @@
         <span aria-hidden="true">·</span>
         <span>Fotogrametría</span>
         <span aria-hidden="true">·</span>
+        <span>LIDAR</span>
+        <span aria-hidden="true">·</span>
         <span>Teledetección</span>
       </nav>
       <div class="footer-copy">
@@ -712,6 +737,6 @@
     </button>
   </nav>
 
-  <script src="script.js"></script>
+  <script type="module" src="script.js"></script>
 </body>
 </html>

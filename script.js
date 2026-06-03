@@ -11,17 +11,19 @@
  */
 
 'use strict';
+import { exportDXF as geoExportDXF, exportSIG as geoExportSIG } from './geoExporter.js';
 
 /* ═══════════════════════════════════════════════════════════════
    1. CONSTANTES GEODÉSICAS — Elipsoide GRS-80 / WGS-84
    ═══════════════════════════════════════════════════════════════ */
-const GRS80 = {
-  a:  6378137.0,            // Semieje mayor (m)
-  f:  1 / 298.257222101,    // Achatamiento
+// Usar parámetros WGS-84 cuando la UI y metadatos declaran WGS-84
+const WGS84 = {
+  a: 6378137.0,                 // Semieje mayor (m)
+  f: 1 / 298.257223563,         // Achatamiento (WGS-84)
 };
-GRS80.b  = GRS80.a * (1 - GRS80.f);                     // Semieje menor
-GRS80.e2 = 2 * GRS80.f - GRS80.f ** 2;                  // Excentricidad² primera
-GRS80.n  = GRS80.f / (2 - GRS80.f);                     // Tercera aplanamiento
+WGS84.b  = WGS84.a * (1 - WGS84.f);                     // Semieje menor
+WGS84.e2 = 2 * WGS84.f - WGS84.f ** 2;                  // Excentricidad²
+WGS84.n  = WGS84.f / (2 - WGS84.f);                     // Tercera aplanamiento
 
 const UTM = {
   k0:           0.9996,     // Factor de escala central
@@ -38,7 +40,8 @@ const UTM = {
  * Algoritmo de Karney (2011) adaptado — alta precisión
  */
 function utmToLatLon(zone, hemisphere, easting, northing) {
-  const { a, e2, k0 } = GRS80;
+  const { a, e2 } = WGS84;
+  const k0 = UTM.k0;
   const E0 = UTM.E0;
   const N0 = hemisphere === 'S' ? UTM.N0_S : 0;
 
@@ -100,7 +103,8 @@ function utmToLatLon(zone, hemisphere, easting, northing) {
  * Latitud / Longitud → UTM
  */
 function latLonToUtm(lat, lon) {
-  const { a, e2, k0 } = GRS80;
+  const { a, e2 } = WGS84;
+  const k0 = UTM.k0;
 
   const latRad = lat * Math.PI / 180;
   const lonRad = lon * Math.PI / 180;
@@ -171,7 +175,7 @@ function toDMS(dd, isLat) {
   const deg    = Math.floor(abs);
   const minFlt = (abs - deg) * 60;
   const min    = Math.floor(minFlt);
-  const sec    = ((minFlt - min) * 60).toFixed(3);
+  const sec    = ((minFlt - min) * 60).toFixed(4);
 
   let dir;
   if (isLat) {
@@ -183,7 +187,7 @@ function toDMS(dd, isLat) {
 }
 
 /** Formato número con separador de miles */
-function fmtNum(n, decimals = 3) {
+function fmtNum(n, decimals = 4) {
   return n.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
@@ -208,15 +212,18 @@ function validateUTM(zone, hemisphere, easting, northing) {
   return errors;
 }
 
-function validateLatLon(lat, lon) {
-  const errors = [];
-  if (isNaN(lat) || lat < -90 || lat > 90) {
-    errors.push('Latitud inválida (−90 a +90 grados decimales)');
-  }
-  if (isNaN(lon) || lon < -180 || lon > 180) {
-    errors.push('Longitud inválida (−180 a +180 grados decimales)');
-  }
-  return errors;
+/** Validación rápida por fila (batch) — devuelve array de mensajes */
+function validateBatchRow(row) {
+  const zone = parseInt(String(row.zone).replace(/\D/g,''), 10);
+  const hem = String(row.hemisphere || '').toUpperCase();
+  const easting = parseFloat(String(row.easting).replace(/,/g,'.').replace(/[^\d.-]/g,''));
+  const northing = parseFloat(String(row.northing).replace(/,/g,'.').replace(/[^\d.-]/g,''));
+  const errs = [];
+  if (isNaN(zone) || zone < 1 || zone > 60) errs.push('Zona inválida (1–60)');
+  if (hem !== 'N' && hem !== 'S') errs.push('Hemisferio inválido (N/S)');
+  if (isNaN(easting)) errs.push('Coordenada Este inválida');
+  if (isNaN(northing)) errs.push('Coordenada Norte inválida');
+  return errs;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -234,12 +241,27 @@ function showToast(message, type = 'info', duration = 3000) {
   if (!container) return;
   const toast = document.createElement('div');
   toast.className = `toast toast--${type}`;
-  toast.innerHTML = `${TOAST_ICONS[type]}<span>${message}</span>`;
+  toast.innerHTML = `${TOAST_ICONS[type]}<span>${message}</span><button class="toast-close" aria-label="Cerrar notificación">×</button>`;
   container.appendChild(toast);
 
-  setTimeout(() => {
+  const dismiss = () => {
+    if (!toast.parentElement) return;
     toast.classList.add('toast--exit');
-    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+    toast.addEventListener('animationend', () => {
+      if (toast.parentElement) toast.remove();
+    }, { once: true });
+  };
+
+  const closeButton = toast.querySelector('.toast-close');
+  if (closeButton) {
+    closeButton.addEventListener('click', () => {
+      clearTimeout(timeoutId);
+      dismiss();
+    });
+  }
+
+  const timeoutId = setTimeout(() => {
+    dismiss();
   }, duration);
 }
 
@@ -254,7 +276,7 @@ async function copyToClipboard(text, btn) {
     const originalText = labelSpan.textContent;
     btn.classList.add('copied');
     labelSpan.textContent = 'Copiado ✓';
-    showToast('Copiado al portapapeles', 'success', 2000);
+    showToast('Copiado al portapapeles', 'success', 3000);
     setTimeout(() => {
       labelSpan.textContent = originalText;
       btn.classList.remove('copied');
@@ -264,16 +286,259 @@ async function copyToClipboard(text, btn) {
   }
 }
 
+async function copyAllToClipboard() {
+  const converted = state.batchRows.filter(r => r.status === 'ok');
+  if (converted.length === 0) {
+    showToast('No hay puntos convertidos para copiar', 'error');
+    return;
+  }
+
+  const header = 'Punto\tZona\tHem.\tEste\tNorte\tLatitud_DD\tLongitud_DD\tLatitud_DMS\tLongitud_DMS';
+  const rows = converted.map(r =>
+    `${r.name}\t${r.zone}\t${r.hemisphere}\t${r.easting}\t${r.northing}\t${r.lat.toFixed(7)}\t${r.lon.toFixed(7)}\t${toDMS(r.lat, true)}\t${toDMS(r.lon, false)}`
+  ).join('\n');
+
+  const text = `${header}\n${rows}`;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = document.getElementById('btn-copy-all');
+    if (btn) {
+      btn.classList.add('copied');
+      const originalText = btn.textContent;
+      btn.textContent = 'Copiado ✓';
+      showToast(`${converted.length} puntos copiados al portapapeles`, 'success', 3000);
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.classList.remove('copied');
+      }, 2000);
+    }
+  } catch {
+    showToast('No se pudo copiar. Usa Ctrl+C manualmente.', 'error');
+  }
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function addImportHistory(valid, invalid) {
+  state.importHistory.unshift({
+    valid,
+    invalid,
+    timestamp: new Date().toISOString(),
+  });
+  if (state.importHistory.length > 10) {
+    state.importHistory.length = 10;
+  }
+}
+
+function renderHistoryPanel() {
+  const panel = document.getElementById('batch-history-panel');
+  const content = document.getElementById('history-panel-content');
+  if (!panel || !content) return;
+
+  if (state.importHistory.length === 0) {
+    content.innerHTML = '<p>No hay importaciones recientes.</p>';
+    return;
+  }
+
+  const items = state.importHistory.map(entry => {
+    const date = new Date(entry.timestamp).toLocaleString('es-AR', { hour12: false });
+    return `<div class="history-item"><span class="history-item-date">${date}</span><span>${entry.valid} válidas, ${entry.invalid} inválidas</span></div>`;
+  }).join('');
+
+  content.innerHTML = `
+    <div class="history-summary">Últimas importaciones</div>
+    ${items}
+  `;
+}
+
+function toggleHistoryPanel() {
+  const panel = document.getElementById('batch-history-panel');
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('history-panel--visible');
+  panel.hidden = !isOpen;
+  if (isOpen) {
+    renderHistoryPanel();
+  }
+}
+
+function exportKML() {
+  const converted = state.batchRows.filter(r => r.status === 'ok');
+  if (converted.length === 0) {
+    showToast('No hay puntos convertidos para exportar KML', 'error');
+    return;
+  }
+
+  const placemarks = converted.map(r => {
+    const lon = r.lon.toFixed(7);
+    const lat = r.lat.toFixed(7);
+    const label = escapeXml(r.name || 'Punto');
+    return `
+      <Placemark>
+        <name>${label}</name>
+        <Point>
+          <coordinates>${lon},${lat},0</coordinates>
+        </Point>
+      </Placemark>`;
+  }).join('');
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Levantamiento AeroGeoTop</name>
+    ${placemarks}
+  </Document>
+</kml>`;
+
+  const blob = new Blob([`\ufeff${kml}`], { type: 'application/vnd.google-earth.kml+xml;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const baseName = state.lastImportedFileName || 'Levantamiento_AeroGeoTop';
+  const today = new Date();
+  const dateLabel = `${String(today.getDate()).padStart(2,'0')}-${String(today.getMonth()+1).padStart(2,'0')}-${today.getFullYear()}`;
+  a.download = `${baseName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${dateLabel}.kml`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast(`${converted.length} puntos exportados a KML`, 'success');
+}
+
+function getExportBaseName(fallback) {
+  const raw = (state.lastImportedFileName || fallback).trim();
+  const safe = raw.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  return safe || fallback;
+}
+
+function getExportDateLabel() {
+  const today = new Date();
+  return `${String(today.getDate()).padStart(2,'0')}-${String(today.getMonth()+1).padStart(2,'0')}-${today.getFullYear()}`;
+}
+
+function exportDXF() {
+  const converted = state.batchRows.filter(r => r.status === 'ok');
+  if (converted.length === 0) {
+    showToast('No hay puntos convertidos para exportar DXF', 'error');
+    return;
+  }
+
+  const entities = converted.map((r) => {
+    const x = Number.parseFloat(r.easting || 0).toFixed(4);
+    const y = Number.parseFloat(r.northing || 0).toFixed(4);
+    const label = escapeXml(r.name || 'Punto');
+    return `0
+POINT
+8
+0
+10
+${x}
+20
+${y}
+30
+0
+0
+TEXT
+8
+0
+10
+${x}
+20
+${y}
+30
+0
+1
+${label}`;
+  }).join('\n');
+
+  const dxf = `0
+SECTION
+2
+HEADER
+0
+ENDSEC
+0
+SECTION
+2
+ENTITIES
+${entities}
+0
+ENDSEC
+0
+EOF\n`;
+
+  const blob = new Blob([dxf], { type: 'application/dxf;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${getExportBaseName('GeoToolkits_DXF')}_${getExportDateLabel()}.dxf`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast(`${converted.length} puntos exportados a DXF`, 'success');
+}
+
+function exportSIG() {
+  const converted = state.batchRows.filter(r => r.status === 'ok');
+  if (converted.length === 0) {
+    showToast('No hay puntos convertidos para exportar SIG', 'error');
+    return;
+  }
+
+  const features = converted.map((r) => ({
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: [Number.parseFloat(r.lon).toFixed(7), Number.parseFloat(r.lat).toFixed(7)],
+    },
+    properties: {
+      Nombre: r.name,
+      Zona: r.zone,
+      Hemisferio: r.hemisphere,
+      Este: r.easting,
+      Norte: r.northing,
+      Latitud_DD: r.lat.toFixed(7),
+      Longitud_DD: r.lon.toFixed(7),
+      Latitud_DMS: toDMS(r.lat, true),
+      Longitud_DMS: toDMS(r.lon, false),
+    },
+  }));
+
+  const geojson = {
+    type: 'FeatureCollection',
+    features,
+  };
+
+  const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${getExportBaseName('GeoToolkits_SIG')}_${getExportDateLabel()}.geojson`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast(`${converted.length} puntos exportados a GeoJSON`, 'success');
+}
+
 /* ═══════════════════════════════════════════════════════════════
    7. ESTADO GLOBAL
    ═══════════════════════════════════════════════════════════════ */
 
 const state = {
-  mode:     'utm',      // 'utm' | 'latlon'
-  tab:      'individual', // 'individual' | 'batch'
-  lastGeo:  null,       // { lat, lon } último resultado
-  lastUtm:  null,       // { zone, hemisphere, easting, northing }
+  mode:      'utm',      // 'utm' | 'latlon'
+  tab:       'individual', // 'individual' | 'batch'
+  lastGeo:   null,       // { lat, lon } último resultado
+  lastUtm:   null,       // { zone, hemisphere, easting, northing }
   batchRows: [],        // Array de filas batch
+  showErrorsOnly: false, // Filtro: mostrar solo filas con error
+  importHistory: [],    // Historial de importaciones
+  lastImportedFileName: '',
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -333,9 +598,9 @@ function displayGeoResult(result, zone, hemisphere) {
 
   state.lastGeo = { lat, lon };
 
-  document.getElementById('res-lat-dd').textContent  = lat.toFixed(6);
+  document.getElementById('res-lat-dd').textContent  = lat.toFixed(7);
   document.getElementById('res-lat-dms').textContent = toDMS(lat, true);
-  document.getElementById('res-lon-dd').textContent  = lon.toFixed(6);
+  document.getElementById('res-lon-dd').textContent  = lon.toFixed(7);
   document.getElementById('res-lon-dms').textContent = toDMS(lon, false);
 
   document.getElementById('meta-zone').textContent = `Zona ${zone}${getLatBand(lat)}`;
@@ -384,6 +649,7 @@ function setFieldError(fieldId, hasError) {
    ═══════════════════════════════════════════════════════════════ */
 
 let batchIdCounter = 0;
+let csvWorker = null;
 
 /** Crea una fila batch vacía */
 function createBatchRow(data = {}) {
@@ -395,9 +661,9 @@ function createBatchRow(data = {}) {
     hemisphere:data.hemisphere|| 'S',
     easting:   data.easting   || '',
     northing:  data.northing  || '',
-    lat:       null,
-    lon:       null,
-    status:    'idle', // idle | ok | error
+    lat:       data.lat       || null,
+    lon:       data.lon       || null,
+    status:    data.status    || 'idle', // idle | ok | error
   };
 }
 
@@ -406,6 +672,11 @@ function renderBatchTable() {
   const tbody = document.getElementById('batch-tbody');
   const empty = document.getElementById('batch-empty');
   const exportBtn = document.getElementById('btn-export-csv');
+  const copyAllBtn = document.getElementById('btn-copy-all');
+  const historyBtn = document.getElementById('btn-history');
+  const kmlBtn = document.getElementById('btn-export-kml');
+  const dxfBtn = document.getElementById('btn-export-dxf');
+  const sigBtn = document.getElementById('btn-export-sig');
   const stat = document.getElementById('batch-stat');
 
   if (!tbody) return;
@@ -414,45 +685,77 @@ function renderBatchTable() {
   if (state.batchRows.length === 0) {
     if (empty) empty.style.display = '';
     if (exportBtn) exportBtn.disabled = true;
+    if (copyAllBtn) copyAllBtn.disabled = true;
+    if (historyBtn) historyBtn.disabled = state.importHistory.length === 0;
+    if (kmlBtn) kmlBtn.disabled = true;
+    if (dxfBtn) dxfBtn.disabled = true;
+    if (sigBtn) sigBtn.disabled = true;
     if (stat) stat.textContent = '0 puntos';
     return;
   }
 
   if (empty) empty.style.display = 'none';
   const converted = state.batchRows.filter(r => r.status === 'ok').length;
-  if (stat) stat.textContent = `${state.batchRows.length} punto${state.batchRows.length !== 1 ? 's' : ''} · ${converted} convertido${converted !== 1 ? 's' : ''}`;
+  const errors = state.batchRows.filter(r => r.status === 'error').length;
+  if (stat) stat.textContent = `${state.batchRows.length} punto${state.batchRows.length !== 1 ? 's' : ''} · ${converted} OK · ${errors} erro${errors !== 1 ? 'r' : 'r'}`;
   if (exportBtn) exportBtn.disabled = converted === 0;
+  if (copyAllBtn) copyAllBtn.disabled = converted === 0;
+  if (historyBtn) historyBtn.disabled = state.importHistory.length === 0;
+  if (kmlBtn) kmlBtn.disabled = converted === 0;
+  if (dxfBtn) dxfBtn.disabled = converted === 0;
+  if (sigBtn) sigBtn.disabled = converted === 0;
 
-  state.batchRows.forEach(row => {
+  // Filtrar filas a mostrar
+  const rowsToShow = state.showErrorsOnly ? state.batchRows.filter(r => r.status === 'error') : state.batchRows;
+
+  rowsToShow.forEach(row => {
     const tr = document.createElement('tr');
     tr.dataset.id = row.id;
+    if (row.status === 'error') tr.classList.add('is-error');
 
-    const statusHtml = {
-      idle:  `<span class="status-badge status-badge--idle">Pendiente</span>`,
-      ok:    `<span class="status-badge status-badge--ok">OK</span>`,
-      error: `<span class="status-badge status-badge--error">Error</span>`,
+    const statusIcon = {
+      idle:  '⏳',
+      ok:    '✓',
+      error: '⚠',
     }[row.status];
 
-    const latHtml = (row.lat !== null && !isNaN(row.lat))
-      ? `<span class="${row.status === 'ok' ? 'result-ok' : 'result-err'}">${row.lat.toFixed(6)}°</span>`
+    const statusHtml = {
+      idle:  `<span class="status-badge status-badge--idle" title="Esperando conversión">${statusIcon} Pendiente</span>`,
+      ok:    `<span class="status-badge status-badge--ok" title="Conversión exitosa">${statusIcon} OK</span>`,
+      error: `<span class="status-badge status-badge--error" title="Fila con errores">${statusIcon} Error</span>`,
+    }[row.status];
+
+    const latDdHtml = (row.lat !== null && !isNaN(row.lat))
+      ? `<span class="${row.status === 'ok' ? 'result-ok' : 'result-err'}">${row.lat.toFixed(7)}</span>`
       : '—';
-    const lonHtml = (row.lon !== null && !isNaN(row.lon))
-      ? `<span class="${row.status === 'ok' ? 'result-ok' : 'result-err'}">${row.lon.toFixed(6)}°</span>`
+    const lonDdHtml = (row.lon !== null && !isNaN(row.lon))
+      ? `<span class="${row.status === 'ok' ? 'result-ok' : 'result-err'}">${row.lon.toFixed(7)}</span>`
+      : '—';
+    const latDmsHtml = (row.lat !== null && !isNaN(row.lat))
+      ? `<span class="${row.status === 'ok' ? 'result-ok' : 'result-err'}">${toDMS(row.lat, true)}</span>`
+      : '—';
+    const lonDmsHtml = (row.lon !== null && !isNaN(row.lon))
+      ? `<span class="${row.status === 'ok' ? 'result-ok' : 'result-err'}">${toDMS(row.lon, false)}</span>`
       : '—';
 
+    const errorIconHtml = row.status === 'error' ? `<button class="row-error-icon" data-error="${escHtml(row.errorMessage || 'Error en fila')}" aria-label="Error: ${escHtml(row.errorMessage || 'Error')}">⚠</button>` : '';
+    const errorId = row.status === 'error' ? `error-msg-${row.id}` : '';
+
     tr.innerHTML = `
-      <td><input type="text"   value="${escHtml(row.name)}"       data-field="name"       aria-label="Nombre del punto" /></td>
-      <td><input type="number" value="${escHtml(row.zone)}"       data-field="zone"       min="1" max="60" inputmode="numeric" aria-label="Zona UTM" /></td>
+      <td><div class="point-cell">${errorIconHtml}<input type="text" value="${escHtml(row.name)}" data-field="name" aria-label="Nombre del punto" ${errorId ? `aria-describedby="${errorId}"` : ''} /><span id="${errorId}" class="sr-only">${row.errorMessage || ''}</span></div></td>
+      <td><input type="number" value="${escHtml(row.zone)}" data-field="zone" min="1" max="60" inputmode="numeric" aria-label="Zona UTM" ${errorId ? `aria-describedby="${errorId}"` : ''} /></td>
       <td>
-        <select data-field="hemisphere" aria-label="Hemisferio">
+        <select data-field="hemisphere" aria-label="Hemisferio" ${errorId ? `aria-describedby="${errorId}"` : ''}>
           <option value="N" ${row.hemisphere === 'N' ? 'selected' : ''}>N</option>
           <option value="S" ${row.hemisphere === 'S' ? 'selected' : ''}>S</option>
         </select>
       </td>
-      <td class="mono"><input type="text" value="${escHtml(row.easting)}"   data-field="easting"   aria-label="Coordenada Este" /></td>
-      <td class="mono"><input type="text" value="${escHtml(row.northing)}"  data-field="northing"  aria-label="Coordenada Norte" /></td>
-      <td class="mono">${latHtml}</td>
-      <td class="mono">${lonHtml}</td>
+      <td class="mono"><input type="text" value="${escHtml(row.easting)}" data-field="easting" aria-label="Coordenada Este" ${errorId ? `aria-describedby="${errorId}"` : ''} /></td>
+      <td class="mono"><input type="text" value="${escHtml(row.northing)}" data-field="northing" aria-label="Coordenada Norte" ${errorId ? `aria-describedby="${errorId}"` : ''} /></td>
+      <td class="mono">${latDdHtml}</td>
+      <td class="mono">${lonDdHtml}</td>
+      <td class="mono">${latDmsHtml}</td>
+      <td class="mono">${lonDmsHtml}</td>
       <td>${statusHtml}</td>
       <td class="col-actions">
         <button class="btn-delete-row" data-id="${row.id}" aria-label="Eliminar fila ${row.name}">
@@ -466,39 +769,52 @@ function renderBatchTable() {
     tbody.appendChild(tr);
   });
 
-  // Listeners de edición en celda
-  tbody.querySelectorAll('input, select').forEach(el => {
-    el.addEventListener('change', (e) => {
-      const id = +e.target.closest('tr').dataset.id;
-      const field = e.target.dataset.field;
+  // Delegación de eventos: evita añadir/remover listeners por fila (escalable)
+  if (!tbody._delegated) {
+    tbody.addEventListener('change', (e) => {
+      const input = e.target;
+      if (!input) return;
+      const tr = input.closest('tr');
+      if (!tr) return;
+      const id = +tr.dataset.id;
+      const field = input.dataset.field;
       const row = state.batchRows.find(r => r.id === id);
-      if (row) {
-        row[field] = e.target.value;
-        row.status = 'idle';
-        row.lat = null;
-        row.lon = null;
+      if (row && field) {
+        row[field] = input.value;
+        // Re-validate the row after edit
+        const errs = validateBatchRow(row);
+        if (errs.length === 0) {
+          row.status = 'idle';
+          delete row.errorMessage;
+          row.lat = null; row.lon = null;
+        } else {
+          row.status = 'error';
+          row.errorMessage = errs.join('; ');
+          row.lat = null; row.lon = null;
+        }
         renderBatchTable();
       }
     });
-  });
 
-  // Listeners de eliminar fila
-  tbody.querySelectorAll('.btn-delete-row').forEach(btn => {
-    btn.addEventListener('click', () => {
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-delete-row');
+      if (!btn) return;
       const id = +btn.dataset.id;
       state.batchRows = state.batchRows.filter(r => r.id !== id);
       renderBatchTable();
     });
-  });
+
+    tbody._delegated = true;
+  }
 }
 
 /** Escape de HTML para prevenir XSS */
 function escHtml(str) {
   return String(str)
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /** Parsea CSV e importa filas */
@@ -529,6 +845,12 @@ function parseCSV(text) {
   return { rows, skipped };
 }
 
+
+function setLastImportedFileName(fileName) {
+  if (!fileName) return;
+  state.lastImportedFileName = fileName.replace(/\.[^.]+$/, '');
+}
+
 /** Exporta resultados a CSV */
 function exportCSV() {
   const converted = state.batchRows.filter(r => r.status === 'ok');
@@ -537,20 +859,24 @@ function exportCSV() {
     return;
   }
 
-  const header = 'Nombre,Zona,Hemisferio,Este_X,Norte_Y,Latitud_DD,Longitud_DD,Latitud_DMS,Longitud_DMS\n';
+  const header = 'Punto\tZona\tHemisferio\tEste\tNorte\tLatitud_DD\tLongitud_DD\tLatitud_DMS\tLongitud_DMS\n';
   const body = converted.map(r =>
-    `${r.name},${r.zone},${r.hemisphere},${r.easting},${r.northing},${r.lat.toFixed(6)},${r.lon.toFixed(6)},"${toDMS(r.lat,true)}","${toDMS(r.lon,false)}"`
+    `${r.name}\t${r.zone}\t${r.hemisphere}\t${r.easting}\t${r.northing}\t${r.lat.toFixed(7)}\t${r.lon.toFixed(7)}\t${toDMS(r.lat,true)}\t${toDMS(r.lon,false)}`
   ).join('\n');
 
-  const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8;' });
+  const csvContent = header + body;
+  const blob = new Blob([`\ufeff${csvContent}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `GeoToolkits_UTM_Conversion_${new Date().toISOString().slice(0,10)}.csv`;
+  const baseName = state.lastImportedFileName || 'GeoToolkits_UTM_Conversion';
+  const today = new Date();
+  const dateLabel = `${String(today.getDate()).padStart(2,'0')}-${String(today.getMonth()+1).padStart(2,'0')}-${today.getFullYear()}`;
+  a.download = `${baseName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${dateLabel}.xls`;
   a.click();
   URL.revokeObjectURL(url);
 
-  showToast(`${converted.length} puntos exportados como CSV`, 'success');
+  showToast(`${converted.length} puntos exportados como Excel`, 'success');
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -665,7 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // Sanitización completa y estricta (Elimina comas, letras y espacios de las casillas numéricas)
+      // Sanitización completa y estricta
       const zoneRaw    = document.getElementById('utm-zone').value.trim();
       const zone       = parseInt(zoneRaw.replace(/\D/g, ''), 10);
       const hemisphere = document.getElementById('utm-hemisphere').value.trim().toUpperCase();
@@ -673,7 +999,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const eastingRaw  = document.getElementById('utm-easting').value.trim();
       const northingRaw = document.getElementById('utm-northing').value.trim();
 
-      // Convierte comas en puntos y purga todo carácter no válido para cálculo lineal
       const easting  = parseFloat(eastingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
       const northing = parseFloat(northingRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
 
@@ -723,7 +1048,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const lat = parseFloat(latRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
       const lon = parseFloat(lonRaw.replace(/,/g, '.').replace(/[^\d.-]/g, ''));
 
-      const errors = validateLatLon(lat, lon);
+      // Validación interna rápida de Lat/Lon
+      const errors = [];
+      if (isNaN(lat) || lat < -90 || lat > 90) errors.push('Latitud inválida (−90 a +90°)');
+      if (isNaN(lon) || lon < -180 || lon > 180) errors.push('Longitud inválida (−180 a +180°)');
+
       setFieldError('ll-lat', isNaN(lat) || lat < -90 || lat > 90);
       setFieldError('ll-lon', isNaN(lon) || lon < -180 || lon > 180);
 
@@ -757,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bCopyDD.addEventListener('click', function() {
       if (!state.lastGeo) return;
       const { lat, lon } = state.lastGeo;
-      copyToClipboard(`${lat.toFixed(6)}, ${lon.toFixed(6)}`, this);
+      copyToClipboard(`${lat.toFixed(7)}, ${lon.toFixed(7)}`, this);
     });
   }
 
@@ -775,14 +1104,15 @@ document.addEventListener('DOMContentLoaded', () => {
     bCopyUtm.addEventListener('click', function() {
       if (!state.lastUtm) return;
       const { zone, hemisphere, band, easting, northing } = state.lastUtm;
-      const txt = `Zona ${zone}${band} ${hemisphere} · E: ${easting.toFixed(3)} · N: ${northing.toFixed(3)}`;
+      const txt = `Zona ${zone}${band} ${hemisphere} · E: ${easting.toFixed(4)} · N: ${northing.toFixed(4)}`;
       copyToClipboard(txt, this);
     });
   }
 
   /* ── ENLACE DE MAPAS OFICIAL (GOOGLE MAPS) ── */
   function openGoogleMaps(lat, lon) {
-    const url = `https://www.google.com/maps?q=${lat},${lon}&z=15&t=k`;
+    // CORREGIDO: URL estándar global parametrizada para evitar errores de codificación
+    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
@@ -821,7 +1151,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ── BATCH: convertir todo ── */
   const bConvertAll = document.getElementById('btn-convert-all');
   if (bConvertAll) {
-    bConvertAll.addEventListener('click', () => {
+    bConvertAll.addEventListener('click', async () => {
       if (state.batchRows.length === 0) {
         showToast('No hay filas para convertir', 'info');
         return;
@@ -830,82 +1160,255 @@ document.addEventListener('DOMContentLoaded', () => {
       let converted = 0;
       let failed = 0;
 
-      state.batchRows.forEach(row => {
-        // Sanitizar datos ingresados en la celda masiva antes de validar
-        const zClean = String(row.zone).trim().replace(/\D/g, '');
-        const zone  = parseInt(zClean, 10);
-        const hem   = String(row.hemisphere).trim().toUpperCase();
+      const chunkSize = 200; // Ajustable según capacidad de la UI
+      for (let i = 0; i < state.batchRows.length; i += chunkSize) {
+        const chunk = state.batchRows.slice(i, i + chunkSize);
+        chunk.forEach(row => {
+          const zClean = String(row.zone).trim().replace(/\D/g, '');
+          const zone  = parseInt(zClean, 10);
+          const hem   = String(row.hemisphere).trim().toUpperCase();
 
-        const eClean = String(row.easting).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
-        const nClean = String(row.northing).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
-        const east  = parseFloat(eClean);
-        const north = parseFloat(nClean);
+          const eClean = String(row.easting).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
+          const nClean = String(row.northing).trim().replace(/,/g, '.').replace(/[^\d.-]/g, '');
+          const east  = parseFloat(eClean);
+          const north = parseFloat(nClean);
 
-        const errs  = validateUTM(zone, hem, east, north);
+          const errs  = validateUTM(zone, hem, east, north);
 
-        if (errs.length > 0) {
-          row.status = 'error';
-          row.lat = null;
-          row.lon = null;
-          failed++;
-        } else {
-          try {
-            const res = utmToLatLon(zone, hem, east, north);
-            row.lat = res.lat;
-            row.lon = res.lon;
-            row.status = 'ok';
-            converted++;
-          } catch {
+          if (errs.length > 0) {
             row.status = 'error';
             row.lat = null;
             row.lon = null;
             failed++;
+          } else {
+            try {
+              const res = utmToLatLon(zone, hem, east, north);
+              row.lat = res.lat;
+              row.lon = res.lon;
+              row.status = 'ok';
+              converted++;
+            } catch (err) {
+              row.status = 'error';
+              row.lat = null;
+              row.lon = null;
+              failed++;
+              console.error('[GeoToolkits] Batch row error:', err);
+            }
           }
-        }
-      });
+        });
 
-      renderBatchTable();
+        // Actualizar la UI por chunks para mantener la interfaz responsiva
+        renderBatchTable();
+        await new Promise(r => setTimeout(r, 0));
+      }
 
-      if (failed === 0) {
-        showToast(`${converted} puntos convertidos correctamente`, 'success');
+      if (failed > 0) {
+        showToast(`Proceso terminado. ${converted} OK · ${failed} con Errores.`, 'info');
       } else {
-        showToast(`${converted} OK · ${failed} con error`, 'info');
+        showToast(`¡Conversión masiva exitosa! ${converted} puntos calculados.`, 'success');
       }
     });
   }
 
-  /* ── BATCH: importar CSV ── */
-  const fInput = document.getElementById('file-input');
-  if (fInput) {
-    fInput.addEventListener('change', (e) => {
+  /* ── BATCH: exportar / utilidades ── */
+  const bCopyAll = document.getElementById('btn-copy-all');
+  if (bCopyAll) {
+    bCopyAll.addEventListener('click', copyAllToClipboard);
+  }
+
+  const bHistory = document.getElementById('btn-history');
+  if (bHistory) {
+    bHistory.addEventListener('click', toggleHistoryPanel);
+  }
+
+  const bHistoryClose = document.getElementById('btn-history-close');
+  if (bHistoryClose) {
+    bHistoryClose.addEventListener('click', () => {
+      const panel = document.getElementById('batch-history-panel');
+      if (panel) {
+        panel.classList.remove('history-panel--visible');
+        panel.hidden = true;
+      }
+    });
+  }
+
+  const bExportCsv = document.getElementById('btn-export-csv');
+  if (bExportCsv) {
+    bExportCsv.addEventListener('click', exportCSV);
+  }
+
+  const bExportDxf = document.getElementById('btn-export-dxf');
+  if (bExportDxf) {
+    bExportDxf.addEventListener('click', exportDXF);
+  }
+
+  const bExportSig = document.getElementById('btn-export-sig');
+  if (bExportSig) {
+    bExportSig.addEventListener('click', exportSIG);
+  }
+
+  const bExportKml = document.getElementById('btn-export-kml');
+  if (bExportKml) {
+    bExportKml.addEventListener('click', exportKML);
+  }
+
+  /* ── BATCH: filtro de errores ── */
+  function toggleErrorFilter() {
+    state.showErrorsOnly = !state.showErrorsOnly;
+    const btn = document.getElementById('btn-filter-errors');
+    if (btn) btn.classList.toggle('active', state.showErrorsOnly);
+    renderBatchTable();
+  }
+
+  // Crear botón de filtro dinámicamente e insertarlo
+  const batchToolbarLeft = document.querySelector('.batch-toolbar-left');
+  if (batchToolbarLeft) {
+    const filterBtn = document.createElement('button');
+    filterBtn.id = 'btn-filter-errors';
+    filterBtn.className = 'btn-filter-errors';
+    filterBtn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 3h12M4 8h8M6 13h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg><span>Solo errores</span>';
+    filterBtn.setAttribute('aria-label', 'Mostrar solo filas con error');
+    filterBtn.setAttribute('title', 'Alternar: mostrar solo filas con error');
+    filterBtn.addEventListener('click', toggleErrorFilter);
+    batchToolbarLeft.appendChild(filterBtn);
+  }
+
+  /* ── BATCH: cargar archivo CSV externo ── */
+  // El id en el HTML es "file-input" — asegurarse de usar el mismo id
+  const inputCsv = document.getElementById('file-input');
+  if (inputCsv) {
+    inputCsv.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      if (!file.name.endsWith('.csv')) {
-        showToast('Solo se aceptan archivos .csv', 'error');
-        return;
-      }
 
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const { rows, skipped } = parseCSV(ev.target.result);
-        if (rows.length === 0) {
-          showToast('No se encontraron filas válidas en el CSV', 'error');
+        setLastImportedFileName(file.name);
+
+      // Inicializar worker si es necesario
+      if (!csvWorker) {
+        try {
+          csvWorker = new Worker('csvWorker.js');
+        } catch (err) {
+          showToast('No se pudo crear worker; se usará procesamiento en main thread', 'warn');
+          // Fallback: leer en main thread
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            const { rows, skipped } = parseCSV(evt.target.result);
+            if (rows.length > 0) {
+              state.batchRows = [...state.batchRows, ...rows];
+              addImportHistory(rows.length, skipped);
+              renderBatchTable();
+              showToast(`Se importaron ${rows.length} puntos correctamente.`, 'success');
+            }
+            if (skipped > 0) showToast(`${skipped} filas omitidas por formato incorrecto.`, 'error');
+            inputCsv.value = '';
+          };
+          reader.readAsText(file);
           return;
         }
-        state.batchRows.push(...rows);
-        renderBatchTable();
-        setTab('batch');
-        showToast(`${rows.length} filas importadas${skipped > 0 ? ` · ${skipped} omitidas` : ''}`, 'success');
-      };
-      reader.readAsText(file);
-      e.target.value = '';
+
+        csvWorker.onmessage = (ev) => {
+          const m = ev.data;
+          if (!m) return;
+          if (m.type === 'row') {
+            const r = m.row;
+            const rowObj = createBatchRow({
+              name: r.name,
+              zone: r.zone,
+              hemisphere: r.hemisphere,
+              easting: r.easting,
+              northing: r.northing,
+              status: m.status === 'ok' ? 'idle' : 'error'
+            });
+            // Attach error message for UI (used for tooltip or details)
+            if (m.status === 'error') rowObj.errorMessage = m.error;
+            state.batchRows.push(rowObj);
+            // Render incremental
+            renderBatchTable();
+          } else if (m.type === 'progress') {
+            // opcional: actualizar estatísticas parciales
+            const stat = document.getElementById('batch-stat');
+            if (stat) stat.textContent = `${m.parsed} puntos importados...`;
+          } else if (m.type === 'done') {
+            addImportHistory(m.valid, m.invalid);
+            if (m.fileName) setLastImportedFileName(m.fileName);
+            renderBatchTable();
+            showToast(`Importación finalizada: ${m.valid} válidas · ${m.invalid} inválidas`, 'success');
+            inputCsv.value = '';
+            csvWorker.terminate();
+            csvWorker = null;
+          } else if (m.type === 'error') {
+            showToast('Error parsing CSV: ' + (m.message||''), 'error');
+            inputCsv.value = '';
+            csvWorker.terminate();
+            csvWorker = null;
+          }
+        };
+      }
+
+      // Enviar archivo al worker (se clona internamente)
+      try {
+        csvWorker.postMessage({ type: 'parse', file });
+        showToast('Parseando CSV en background...', 'info', 5000);
+      } catch (err) {
+        showToast('Error al enviar archivo al worker. Intentando fallback.', 'error');
+        inputCsv.value = '';
+      }
     });
   }
 
-  /* ── BATCH: exportar CSV ── */
-  const bExport = document.getElementById('btn-export-csv');
-  if (bExport) bExport.addEventListener('click', exportCSV);
+  /* Tooltip para mensajes de error de fila (desktop y mobile tap) */
+  let tooltipEl = null;
+  function ensureTooltip() {
+    if (tooltipEl) return tooltipEl;
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'row-tooltip';
+    tooltipEl.setAttribute('role', 'status');
+    document.body.appendChild(tooltipEl);
+    return tooltipEl;
+  }
 
-  /* — Inicializar — */
-  renderBatchTable();
+  function showRowTooltip(target, text) {
+    const t = ensureTooltip();
+    t.textContent = text;
+    t.classList.add('visible');
+    const rect = target.getBoundingClientRect();
+    // colocar sobre la fila, centrado en el icono
+    const top = Math.max(8, rect.top - 8 - t.offsetHeight);
+    const left = Math.min(window.innerWidth - 16 - t.offsetWidth, rect.left + rect.width / 2 - t.offsetWidth / 2);
+    t.style.top = `${top}px`;
+    t.style.left = `${Math.max(8, left)}px`;
+  }
+
+  function hideRowTooltip() {
+    if (!tooltipEl) return;
+    tooltipEl.classList.remove('visible');
+  }
+
+  // Delegación: mostrar/ocultar tooltip en hover y click
+  document.addEventListener('pointerover', (e) => {
+    const btn = e.target.closest && e.target.closest('.row-error-icon');
+    if (!btn) return;
+    const msg = btn.dataset.error || btn.getAttribute('title') || 'Error en la fila';
+    showRowTooltip(btn, msg);
+  });
+  document.addEventListener('pointerout', (e) => {
+    const btn = e.target.closest && e.target.closest('.row-error-icon');
+    if (!btn) return;
+    hideRowTooltip();
+  });
+
+  // Tap/click to toggle tooltip on touch devices
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest && e.target.closest('.row-error-icon');
+    if (!btn) return;
+    const msg = btn.dataset.error || btn.getAttribute('title') || 'Error en la fila';
+    const t = ensureTooltip();
+    if (t.classList.contains('visible') && t.textContent === msg) {
+      hideRowTooltip();
+    } else {
+      showRowTooltip(btn, msg);
+      // auto-hide after 5s
+      setTimeout(hideRowTooltip, 5000);
+    }
+  });
 });
